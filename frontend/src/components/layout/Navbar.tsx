@@ -1,50 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Activity, ShieldCheck, ChevronRight, Sparkles, Navigation } from 'lucide-react';
-import { LivePulse } from '../ui/LivePulse';
-import { useRescueStore } from '../../stores/useRescueStore';
+import { 
+  Activity, 
+  ChevronRight, 
+  Menu, 
+  X, 
+  Navigation
+} from 'lucide-react';
 
 export const Navbar: React.FC = () => {
   const location = useLocation();
-  const impactMetrics = useRescueStore(state => state.impactMetrics);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const isLanding = location.pathname === '/';
 
   const navLinks = [
-    { name: 'The Urban Loop', path: '/' },
-    { name: 'Live Command Map', path: '/app/command' },
-    { name: 'AI Forecast', path: '/app/forecast' },
-    { name: 'Circular Recovery', path: '/app/circular' },
-    { name: 'Impact & ESG', path: '/app/impact' },
+    { name: 'Product', href: isLanding ? '#product' : '/#product' },
+    { name: 'How It Works', href: isLanding ? '#how-it-works' : '/#how-it-works' },
+    { name: 'Impact', href: isLanding ? '#impact' : '/#impact' },
+    { name: 'About', href: isLanding ? '#about' : '/#about' },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#070b0f]/80 backdrop-blur-xl">
-      {/* Live System Ticker */}
-      <div className="hidden md:flex items-center justify-between px-6 py-1 text-xs border-b border-slate-800/50 bg-slate-950/60 font-mono text-slate-400">
-        <div className="flex items-center gap-4">
-          <LivePulse color="emerald" label="GRID ONLINE" size="sm" />
-          <span className="text-slate-300">
-            MUMBAI METRO CLUSTER 01
-          </span>
-          <span className="text-slate-500">|</span>
-          <span className="text-emerald-400">
-            {impactMetrics?.activeFleetCount || 28} EV RESCUE VANS ACTIVE
-          </span>
-          <span className="text-slate-500">|</span>
-          <span className="text-cyan-400">
-            {impactMetrics?.circularDiversionRatePercent || 99.4}% ZERO-LANDFILL DIVERSION
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400">AI PREDICTION ENGINE:</span>
-          <span className="text-indigo-400 font-semibold flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> NEURAL-LOGISTICS V3.2
-          </span>
-        </div>
-      </div>
-
-      {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Logo */}
+    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#070b0f]/85 backdrop-blur-xl transition-all">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+        {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center p-0.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform group-hover:scale-105">
             <div className="w-full h-full bg-[#070b0f] rounded-[10px] flex items-center justify-center">
@@ -52,59 +32,95 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-lg font-extrabold tracking-tight text-white font-mono">
+            <div className="flex items-center gap-1.5 font-mono">
+              <span className="text-xl font-extrabold tracking-tight text-white">
                 RASOI<span className="text-emerald-400">GRID</span>
               </span>
-              <span className="text-[10px] px-1.5 py-0.2 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded font-mono">
+              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded font-semibold">
                 LOOP
               </span>
             </div>
             <p className="text-[10px] tracking-wider uppercase text-slate-400 font-medium">
-              Urban Food Rescue Protocol
+              Urban Intelligence Protocol
             </p>
           </div>
         </Link>
 
-        {/* Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-900/60 p-1 rounded-xl border border-slate-800">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.path;
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isActive
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                }`}
-              >
-                {link.name}
-              </Link>
-            );
-          })}
+        {/* Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-8">
+          {navLinks.map((link) => (
+            <a
+              key={link.name}
+              href={link.href}
+              className="text-sm font-medium text-slate-300 hover:text-emerald-400 transition-colors"
+            >
+              {link.name}
+            </a>
+          ))}
         </nav>
 
-        {/* Action CTAs */}
-        <div className="flex items-center gap-3">
+        {/* Desktop CTAs */}
+        <div className="hidden md:flex items-center gap-4">
           <Link
             to="/app/donations"
-            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-800/90 text-slate-200 border border-slate-700/80 hover:bg-slate-700/80 hover:border-slate-600 transition-all"
+            className="text-xs font-semibold text-slate-300 hover:text-white transition-colors px-3 py-2"
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Donor Portal</span>
+            Donor Portal
           </Link>
           <Link
             to="/app/command"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all group font-mono"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all font-mono group"
           >
             <Navigation className="w-3.5 h-3.5" />
-            <span>OPEN COMMAND</span>
+            <span>LAUNCH APP</span>
             <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
+
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+          aria-label="Toggle Navigation Menu"
+        >
+          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
       </div>
+
+      {/* Mobile Drawer */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl px-4 py-6 space-y-4">
+          <nav className="flex flex-col space-y-3">
+            {navLinks.map((link) => (
+              <a
+                key={link.name}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-medium text-slate-300 hover:text-emerald-400 py-1 transition-colors"
+              >
+                {link.name}
+              </a>
+            ))}
+          </nav>
+          <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-2.5">
+            <Link
+              to="/app/donations"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full text-center py-2.5 rounded-lg text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-200"
+            >
+              Donor Portal
+            </Link>
+            <Link
+              to="/app/command"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full text-center py-2.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 font-mono flex items-center justify-center gap-1.5"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>LAUNCH APP</span>
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

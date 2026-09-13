@@ -7,9 +7,13 @@
     --font-mono: 'JetBrains Mono', monospace;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #070b0f;
+    background-color: #06090d;
     color: #f1f5f9;
     overflow-x: hidden;
     margin: 0;
@@ -85,4 +89,36 @@
 .leaflet-popup-tip {
   background: #0f172a !important;
 }
+
+/* Ambient Climate-Tech Grid Patterns */
+.bg-grid-subtle {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.bg-radial-vignette {
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 70%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 70%, transparent 100%);
+}
+
+.gradient-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.3) 35%, rgba(6, 182, 212, 0.3) 65%, transparent 100%);
+}
+
+/* Animated flow beam */
+@keyframes flowBeam {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-flow-beam {
+  stroke-dasharray: 6 6;
+  animation: flowBeam 1.2s linear infinite;
+}
+
 

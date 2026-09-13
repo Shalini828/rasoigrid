@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-slate-800/80 bg-[#05080c] text-slate-400 py-12 px-4 sm:px-6 lg:px-8 mt-20">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+    <footer className="border-t border-slate-800/80 bg-[#05080c] text-slate-400 py-12 px-4 sm:px-6 lg:px-8 mt-16">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
         {/* Brand Column */}
         <div className="md:col-span-1 space-y-4">
           <div className="flex items-center gap-2">
@@ -21,7 +21,7 @@ export const Footer: React.FC = () => {
           </p>
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>AI Predictive Dispatch v3.2</span>
+            <span>Urban Food Intelligence Platform</span>
           </div>
         </div>
 
@@ -83,30 +83,30 @@ export const Footer: React.FC = () => {
           </ul>
         </div>
 
-        {/* Security & ESG */}
+        {/* Verification & Compliance Framework */}
         <div>
           <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider mb-3 font-mono">
-            Verification & ESG
+            Framework & Safety
           </h4>
           <ul className="space-y-2 text-xs">
             <li className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>FSSAI Safe Food Handover Standard</span>
+              <span>Human-Verified Safety Sign-Off</span>
             </li>
             <li>
               <Link to="/app/impact" className="hover:text-emerald-400 transition-colors">
-                Methane & Carbon Avoidance Ledger
+                Methane & Carbon Offset Ledger
               </Link>
             </li>
             <li>
-              <span className="text-slate-400">ISO 14064 GHG Audit Compliant</span>
+              <span className="text-slate-400">Standardized Chain-of-Custody</span>
             </li>
           </ul>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400">
-        <p>© {new Date().getFullYear()} RasoiGrid Foundation. Built for sustainable zero-waste megacities.</p>
+      <div className="max-w-7xl mx-auto pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400">
+        <p>© {new Date().getFullYear()} RasoiGrid Platform. Built for zero-waste urban ecosystems.</p>
         <p className="font-mono text-[11px] text-slate-400 mt-2 sm:mt-0">
           PREDICT → ROUTE → RECOVER
         </p>
