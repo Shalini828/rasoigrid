@@ -46,3 +46,14 @@ def create_donation(
     db.refresh(new_donation)
 
     return new_donation
+
+@router.get("/", response_model=list[DonationResponse])
+def get_my_donations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    donations = db.query(Donation).filter(
+        Donation.donor_id == current_user.id
+    ).all()
+
+    return donations
