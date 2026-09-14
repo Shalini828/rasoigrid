@@ -1,17 +1,25 @@
 import os
-from google import genai
+import json
+
 from dotenv import load_dotenv
+from google import genai
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 
+
 load_dotenv()
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+    api_key=GEMINI_API_KEY
 )
+
+
 router = APIRouter(
     prefix="/api/predictions",
     tags=["Predictions"]
@@ -38,68 +46,101 @@ def predict_surplus(
     request: PredictionRequest,
     current_user: User = Depends(get_current_user)
 ):
+
     prompt = f"""
-    You are the AI prediction engine for RasoiGrid, an urban food surplus
-    management platform.
+You are the AI prediction engine for RasoiGrid,
+an urban food surplus management platform.
 
-    Analyze this food surplus information:
+Analyze this food surplus information:
 
-    Food category: {request.food_category}
-    Quantity: {request.quantity} {request.unit}
-    Prepared at: {request.prepared_at}
-    Consume before: {request.consume_before}
+Food category: {request.food_category}
+Quantity: {request.quantity} {request.unit}
+Prepared at: {request.prepared_at}
+Consume before: {request.consume_before}
 
-    Return ONLY valid JSON with exactly these fields:
-    surplus_risk
-    urgency
-    recommended_action
-    explanation
+Return ONLY a valid JSON object.
 
-    surplus_risk must be LOW, MEDIUM, or HIGH.
-    urgency must be LOW, MEDIUM, or HIGH.
+The JSON must contain exactly these fields:
 
-    Do not claim that the food is microbiologically safe or unsafe.
-    AI should provide a planning recommendation only.
-    """
+surplus_risk
+urgency
+recommended_action
+explanation
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+surplus_risk must be exactly one of:
+LOW, MEDIUM, HIGH
 
-    import json
+urgency must be exactly one of:
+LOW, MEDIUM, HIGH
 
-    result = json.loads(response.text)
+Do not claim that the food is microbiologically safe or unsafe.
 
-    return PredictionResponse(
-        surplus_risk=result["surplus_risk"],
-        urgency=result["urgency"],
-        recommended_action=result["recommended_action"],
-        explanation=result["explanation"]
-    )
-    # Gemini will be connected in the next step.
+AI is only providing a planning and prioritization recommendation.
 
-    if request.quantity >= 50:
-        surplus_risk = "HIGH"
-        urgency = "HIGH"
-        recommended_action = "Alert verified rescue organizations immediately"
-        explanation = "Large food quantity indicates a high probability of surplus."
+Food safety decisions must remain with authorized human food-safety personnel.
+"""
 
-    elif request.quantity >= 20:
-        surplus_risk = "MEDIUM"
-        urgency = "MEDIUM"
-        recommended_action = "Prepare rescue matching and pickup planning"
-        explanation = "The reported quantity may require coordinated redistribution."
 
-    else:
-        surplus_risk = "LOW"
-        urgency = "LOW"
-        recommended_action = "Monitor surplus and prepare local recovery options"
-        explanation = "The reported quantity is relatively small."
+    try:
 
-    return PredictionResponse(
-        surplus_risk=surplus_risk,
-        urgency=urgency,
-        recommended_action=recommended_action,
-        explanation=explanation
-    )
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-lite",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json"
+            }
+        )
+
+        if not response.text:
+            raise ValueError("Gemini returned an empty response")
+
+        result = json.loads(response.text)
+
+        return PredictionResponse(
+            surplus_risk=result["surplus_risk"],
+            urgency=result["urgency"],
+            recommended_action=result["recommended_action"],
+            explanation=result["explanation"]
+        )
+
+    except Exception:
+
+        # Safe fallback if Gemini is temporarily unavailable
+        if request.quantity >= 50:
+            surplus_risk = "HIGH"
+            urgency = "HIGH"
+            recommended_action = (
+                "Alert verified rescue organizations immediately"
+            )
+            explanation = (
+                "The reported quantity is large and may require "
+                "immediate rescue coordination."
+            )
+
+        elif request.quantity >= 20:
+            surplus_risk = "MEDIUM"
+            urgency = "MEDIUM"
+            recommended_action = (
+                "Prepare rescue matching and pickup planning"
+            )
+            explanation = (
+                "The reported quantity may require coordinated "
+                "redistribution."
+            )
+
+        else:
+            surplus_risk = "LOW"
+            urgency = "LOW"
+            recommended_action = (
+                "Monitor surplus and prepare local recovery options"
+            )
+            explanation = (
+                "The reported quantity is relatively small."
+            )
+
+        return PredictionResponse(
+            surplus_risk=surplus_risk,
+            urgency=urgency,
+            recommended_action=recommended_action,
+            explanation=explanation
+        )
