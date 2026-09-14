@@ -71,6 +71,16 @@ def register(
             detail="Email already registered"
         )
 
+    existing_phone = db.query(User).filter(
+            User.phone == user.phone
+        ).first()
+
+    if existing_phone:
+        raise HTTPException(
+            status_code=400,
+            detail="Phone number already registered"
+        )
+
     hashed_password = password_hash.hash(user.password)
 
     new_user = User(
