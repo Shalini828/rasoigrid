@@ -6,9 +6,9 @@ from app.models.dispatch import Dispatch
 from app.models.rescue_request import RescueRequest
 from app.models.volunteer import VolunteerProfile
 from app.models.ngo import NGOProfile
+from app.models.user import User
 from app.schemas.dispatch import DispatchCreate, DispatchResponse
 from app.dependencies.auth import get_current_user
-from app.models.user import User
 
 
 router = APIRouter(
@@ -31,10 +31,19 @@ def create_dispatch(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only NGO users can create dispatches
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can create dispatches"
+        )
+
     # 1. Check that the rescue request exists
     rescue_request = (
         db.query(RescueRequest)
-        .filter(RescueRequest.id == dispatch.rescue_request_id)
+        .filter(
+            RescueRequest.id == dispatch.rescue_request_id
+        )
         .first()
     )
 
@@ -64,7 +73,10 @@ def create_dispatch(
     if not ngo:
         raise HTTPException(
             status_code=403,
-            detail="Only the NGO that owns this rescue request can create a dispatch"
+            detail=(
+                "Only the NGO that owns this rescue request "
+                "can create a dispatch"
+            )
         )
 
     # 4. Prevent duplicate dispatches
@@ -114,7 +126,11 @@ def create_dispatch(
         pickup_longitude=dispatch.pickup_longitude,
         delivery_latitude=dispatch.delivery_latitude,
         delivery_longitude=dispatch.delivery_longitude,
-        status="ASSIGNED" if dispatch.volunteer_id else "PENDING"
+        status=(
+            "ASSIGNED"
+            if dispatch.volunteer_id
+            else "PENDING"
+        )
     )
 
     db.add(new_dispatch)
@@ -134,10 +150,19 @@ def get_my_dispatches(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only NGO users can access NGO dispatches
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can view NGO dispatches"
+        )
+
     # Get NGO owned by current user
     ngo = (
         db.query(NGOProfile)
-        .filter(NGOProfile.user_id == current_user.id)
+        .filter(
+            NGOProfile.user_id == current_user.id
+        )
         .first()
     )
 
@@ -163,16 +188,29 @@ def get_my_dispatches(
     return dispatches
 
 
-@router.patch("/{dispatch_id}/status", response_model=DispatchResponse)
+@router.patch(
+    "/{dispatch_id}/status",
+    response_model=DispatchResponse
+)
 def update_dispatch_status(
     dispatch_id: int,
     status: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only NGO users can update dispatches
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can update dispatches"
+        )
+
+    # Find dispatch
     dispatch = (
         db.query(Dispatch)
-        .filter(Dispatch.id == dispatch_id)
+        .filter(
+            Dispatch.id == dispatch_id
+        )
         .first()
     )
 
@@ -182,7 +220,7 @@ def update_dispatch_status(
             detail="Dispatch not found"
         )
 
-    # Check that the current user owns the related NGO
+    # Get related rescue request
     rescue_request = (
         db.query(RescueRequest)
         .filter(
@@ -197,6 +235,7 @@ def update_dispatch_status(
             detail="Rescue request not found"
         )
 
+    # Check that the current user owns the related NGO
     ngo = (
         db.query(NGOProfile)
         .filter(
@@ -212,6 +251,7 @@ def update_dispatch_status(
             detail="You are not authorized to update this dispatch"
         )
 
+    # Validate status
     allowed_statuses = [
         "PENDING",
         "ASSIGNED",
@@ -228,7 +268,8 @@ def update_dispatch_status(
 
     dispatch.status = status
 
-    # Make volunteer available again when dispatch is completed/cancelled
+    # Make volunteer available again when dispatch
+    # is completed or cancelled
     if (
         dispatch.volunteer_id is not None
         and status in ["DELIVERED", "CANCELLED"]

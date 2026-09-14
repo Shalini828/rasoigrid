@@ -28,6 +28,13 @@ def create_ngo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only NGO users can create NGO profiles
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can create NGO profiles"
+        )
+
     existing_ngo = (
         db.query(NGOProfile)
         .filter(NGOProfile.user_id == current_user.id)
@@ -82,6 +89,12 @@ def update_my_ngo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can update NGO profiles"
+        )
+
     existing_ngo = (
         db.query(NGOProfile)
         .filter(NGOProfile.user_id == current_user.id)
@@ -113,12 +126,16 @@ def get_ngos(
 ):
     ngos = (
         db.query(NGOProfile)
-        .filter(NGOProfile.verification_status == "VERIFIED")
+        .filter(
+            NGOProfile.verification_status == "VERIFIED",
+            NGOProfile.capacity > 0
+        )
         .order_by(NGOProfile.id.desc())
         .all()
     )
 
     return ngos
+
 
 @router.patch("/{ngo_id}/verify", response_model=NGOResponse)
 def verify_ngo(
@@ -126,6 +143,13 @@ def verify_ngo(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only administrators can verify NGOs
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Only administrators can verify NGOs"
+        )
+
     ngo = (
         db.query(NGOProfile)
         .filter(NGOProfile.id == ngo_id)

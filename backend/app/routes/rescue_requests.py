@@ -58,6 +58,7 @@ def create_rescue_request(
         db.query(NGOProfile)
         .filter(
             NGOProfile.id == request.ngo_id,
+            NGOProfile.user_id == current_user.id,
             NGOProfile.verification_status == "VERIFIED"
         )
         .first()

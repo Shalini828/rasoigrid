@@ -29,6 +29,12 @@ def create_donation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+
+    if current_user.role != "DONOR":
+        raise HTTPException(
+            status_code=403,
+            detail="Only donors can create donations"
+        )
     new_donation = Donation(
         donor_id=current_user.id,  
         food_name=donation.food_name,
@@ -163,7 +169,10 @@ def get_donation_matches(
 ):
     donation = (
         db.query(Donation)
-        .filter(Donation.id == donation_id)
+        .filter(
+            Donation.id == donation_id,
+            Donation.donor_id == current_user.id
+        )
         .first()
     )
 

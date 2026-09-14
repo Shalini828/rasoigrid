@@ -4,12 +4,9 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.volunteer import VolunteerProfile
 from app.models.user import User
+from app.models.donation import Donation
 from app.schemas.volunteer import VolunteerCreate, VolunteerResponse
 from app.dependencies.auth import get_current_user
-
-from app.models.volunteer import VolunteerProfile
-from app.schemas.volunteer import VolunteerResponse
-from app.models.donation import Donation
 
 
 router = APIRouter(
@@ -32,6 +29,13 @@ def create_volunteer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only volunteer users can create volunteer profiles
+    if current_user.role != "VOLUNTEER":
+        raise HTTPException(
+            status_code=403,
+            detail="Only volunteer users can create volunteer profiles"
+        )
+
     existing = (
         db.query(VolunteerProfile)
         .filter(VolunteerProfile.user_id == current_user.id)
@@ -84,6 +88,13 @@ def update_my_volunteer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only volunteer users can update volunteer profiles
+    if current_user.role != "VOLUNTEER":
+        raise HTTPException(
+            status_code=403,
+            detail="Only volunteer users can update volunteer profiles"
+        )
+
     existing = (
         db.query(VolunteerProfile)
         .filter(VolunteerProfile.user_id == current_user.id)
@@ -105,11 +116,19 @@ def update_my_volunteer(
 
     return existing
 
+
 @router.patch("/my/availability", response_model=VolunteerResponse)
 def update_availability(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only volunteer users can change availability
+    if current_user.role != "VOLUNTEER":
+        raise HTTPException(
+            status_code=403,
+            detail="Only volunteer users can change availability"
+        )
+
     volunteer = (
         db.query(VolunteerProfile)
         .filter(VolunteerProfile.user_id == current_user.id)
@@ -142,9 +161,13 @@ def get_donation_volunteers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Only the donation owner can request volunteer matches
     donation = (
         db.query(Donation)
-        .filter(Donation.id == donation_id)
+        .filter(
+            Donation.id == donation_id,
+            Donation.donor_id == current_user.id
+        )
         .first()
     )
 
