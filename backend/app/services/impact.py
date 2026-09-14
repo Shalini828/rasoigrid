@@ -1,3 +1,6 @@
+from app.services.config import KG_PER_ESTIMATED_MEAL
+
+
 def calculate_impact(
     rescued_food_kg: float,
     organic_recovery_kg: float = 0,
@@ -5,15 +8,16 @@ def calculate_impact(
     total_donations: int = 0
 ):
     """
-    Calculate estimated environmental and social impact.
+    Calculate estimated social and environmental impact.
 
-    These are planning estimates, not measured real-world outcomes.
+    These are configurable planning estimates,
+    not measured real-world outcomes.
     """
 
-    # Configurable estimate:
-    # 0.5 kg of rescued food ≈ 1 meal supported
-    estimated_meals = rescued_food_kg / 0.5
+    # Estimated meals supported
+    estimated_meals = rescued_food_kg / KG_PER_ESTIMATED_MEAL
 
+    # Rescue success rate
     if total_donations > 0:
         rescue_rate = (
             successful_rescues / total_donations
@@ -21,6 +25,7 @@ def calculate_impact(
     else:
         rescue_rate = 0
 
+    # Total material recovered
     total_recovered_kg = (
         rescued_food_kg + organic_recovery_kg
     )

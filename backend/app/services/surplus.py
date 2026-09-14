@@ -1,5 +1,11 @@
 from datetime import datetime, timezone
-
+from app.services.config import (
+    HIGH_QUANTITY_KG,
+    MEDIUM_QUANTITY_KG,
+    CRITICAL_HOURS,
+    HIGH_URGENCY_HOURS,
+    MEDIUM_URGENCY_HOURS,
+)
 
 def calculate_surplus_score(
     quantity: float,
@@ -30,19 +36,19 @@ def calculate_surplus_score(
     score = 0
 
     # Quantity factor
-    if quantity >= 50:
+    if quantity >= HIGH_QUANTITY_KG:
         score += 40
-    elif quantity >= 20:
+    elif quantity >= MEDIUM_QUANTITY_KG:
         score += 25
     else:
         score += 10
 
     # Time remaining factor
-    if hours_remaining <= 2:
+    if hours_remaining <= CRITICAL_HOURS:
         score += 40
-    elif hours_remaining <= 6:
+    elif hours_remaining <= HIGH_URGENCY_HOURS:
         score += 30
-    elif hours_remaining <= 12:
+    elif hours_remaining <= MEDIUM_URGENCY_HOURS:
         score += 20
     else:
         score += 10

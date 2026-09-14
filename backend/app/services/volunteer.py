@@ -1,5 +1,11 @@
 from math import radians, sin, cos, sqrt, atan2
 
+from app.services.config import (
+    NEAR_DISTANCE_KM,
+    MEDIUM_DISTANCE_KM,
+    FAR_DISTANCE_KM,
+)
+
 
 def calculate_distance(
     latitude1: float,
@@ -19,7 +25,8 @@ def calculate_distance(
 
     a = (
         sin(delta_lat / 2) ** 2
-        + cos(lat1) * cos(lat2)
+        + cos(lat1)
+        * cos(lat2)
         * sin(delta_lon / 2) ** 2
     )
 
@@ -43,11 +50,11 @@ def rank_volunteers(
 
     for volunteer in volunteers:
 
-        # Only consider available volunteers
+        # Only available volunteers
         if volunteer.availability_status != "AVAILABLE":
             continue
 
-        # Coordinates are required for distance-based ranking
+        # Coordinates are required
         if volunteer.latitude is None or volunteer.longitude is None:
             continue
 
@@ -61,26 +68,30 @@ def rank_volunteers(
         score = 100
 
         # Distance factor
-        if distance <= 2:
+        if distance <= NEAR_DISTANCE_KM:
             score += 20
-        elif distance <= 5:
+        elif distance <= MEDIUM_DISTANCE_KM:
             score += 10
-        elif distance <= 10:
+        elif distance <= FAR_DISTANCE_KM:
             score += 0
         else:
             score -= 20
 
-        # Vehicle factor
+        # Vehicle availability factor
         if volunteer.vehicle_type:
             score += 10
+
+        # Keep score between 0 and 100
+        score = max(0, min(score, 100))
 
         matches.append({
             "volunteer_id": volunteer.id,
             "distance_km": round(distance, 2),
             "vehicle_type": volunteer.vehicle_type,
-            "match_score": max(0, min(score, 100))
+            "match_score": score
         })
 
+    # Highest scoring volunteer first
     matches.sort(
         key=lambda match: match["match_score"],
         reverse=True
