@@ -14,6 +14,12 @@ from app.models.user import User
 load_dotenv()
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable is not configured"
+    )
+
 JWT_ALGORITHM = "HS256"
 
 security = HTTPBearer()

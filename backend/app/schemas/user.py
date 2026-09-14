@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     phone: str
     password: str
-    role: Literal["DONOR", "NGO", "VOLUNTEER"]
+    role: Literal["DONOR", "NGO", "VOLUNTEER", "ADMIN"]
 
 
 class UserResponse(BaseModel):

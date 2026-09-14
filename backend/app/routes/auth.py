@@ -20,13 +20,22 @@ from app.schemas.user import (
 from pwdlib import PasswordHash
 
 
-router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+router = APIRouter(
+    prefix="/api/auth",
+    tags=["Authentication"]
+)
 
 password_hash = PasswordHash.recommended()
 
 load_dotenv()
 
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable is not configured"
+    )
+
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
@@ -41,7 +50,16 @@ def get_db():
 
 
 @router.post("/register", response_model=UserResponse)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+def register(
+    user: UserCreate,
+    db: Session = Depends(get_db)
+):
+    # ADMIN accounts cannot be created through public registration.
+    if user.role == "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="ADMIN accounts cannot be created through public registration"
+        )
 
     existing_user = db.query(User).filter(
         User.email == user.email
@@ -71,8 +89,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(user: LoginRequest, db: Session = Depends(get_db)):
-
+def login(
+    user: LoginRequest,
+    db: Session = Depends(get_db)
+):
     existing_user = db.query(User).filter(
         User.email == user.email
     ).first()
