@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
+
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Activity, 
-  ChevronRight, 
-  Menu, 
-  X, 
-  Navigation
+
+import {
+  Activity,
+  ChevronRight,
+  Menu,
+  X,
+  Navigation,
+  Radio,
+  Clock3,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -15,108 +19,196 @@ export const Navbar: React.FC = () => {
   const isLanding = location.pathname === '/';
 
   const navLinks = [
-    { name: 'Product', href: isLanding ? '#product' : '/#product' },
-    { name: 'How It Works', href: isLanding ? '#how-it-works' : '/#how-it-works' },
-    { name: 'Impact', href: isLanding ? '#impact' : '/#impact' },
-    { name: 'About', href: isLanding ? '#about' : '/#about' },
+    {
+      name: 'Product',
+      href: isLanding ? '#product' : '/#product',
+    },
+    {
+      name: 'How It Works',
+      href: isLanding ? '#how-it-works' : '/#how-it-works',
+    },
+    {
+      name: 'Impact',
+      href: isLanding ? '#impact' : '/#impact',
+    },
+    {
+      name: 'About',
+      href: isLanding ? '#about' : '/#about',
+    },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#070b0f]/85 backdrop-blur-xl transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center p-0.5 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform group-hover:scale-105">
-            <div className="w-full h-full bg-[#070b0f] rounded-[10px] flex items-center justify-center">
-              <Activity className="w-5 h-5 text-emerald-400" />
-            </div>
+    <header className="sticky top-0 z-50 w-full h-[76px] border-b border-slate-800/90 bg-[#070b0f] text-slate-100">
+      <div className="h-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+
+        {/* BRAND */}
+        <Link
+          to="/"
+          className="flex items-center gap-3 min-w-fit group"
+        >
+          <div className="w-9 h-9 rounded-lg border border-emerald-500/50 bg-emerald-500/10 flex items-center justify-center shadow-[0_0_18px_rgba(16,185,129,0.12)]">
+            <Activity className="w-[18px] h-[18px] text-emerald-400" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5 font-mono">
-              <span className="text-xl font-extrabold tracking-tight text-white">
+
+          <div className="leading-none">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[17px] font-bold tracking-tight text-slate-100">
                 RASOI<span className="text-emerald-400">GRID</span>
               </span>
-              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded font-semibold">
-                LOOP
+
+              <span className="px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-[9px] font-mono font-bold tracking-wider text-emerald-400">
+                OPS
               </span>
             </div>
-            <p className="text-[10px] tracking-wider uppercase text-slate-400 font-medium">
+
+            <p className="mt-1 text-[9px] uppercase tracking-[0.16em] font-mono text-slate-500">
               Urban Intelligence Protocol
             </p>
           </div>
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8">
+        {/* TELEMETRY */}
+        <div className="hidden lg:flex items-center gap-3 ml-8 mr-auto">
+          <div className="w-px h-5 bg-slate-800" />
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/5">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+
+            <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-emerald-400">
+              TELEMETRY SYNC
+            </span>
+          </div>
+
+          <span className="text-slate-700">•</span>
+
+          <div className="flex items-center gap-1.5 text-slate-500">
+            <Clock3 className="w-3.5 h-3.5" />
+
+            <span className="text-[10px] font-mono tracking-wider">
+              LIVE
+            </span>
+          </div>
+        </div>
+
+        {/* DESKTOP NAVIGATION */}
+        <nav className="hidden xl:flex items-center gap-7 mr-8">
           {navLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
-              className="text-sm font-medium text-slate-300 hover:text-emerald-400 transition-colors"
+              className="text-[12px] font-medium text-slate-400 hover:text-emerald-400 transition-colors"
             >
               {link.name}
             </a>
           ))}
         </nav>
 
-        {/* Desktop CTAs */}
-        <div className="hidden md:flex items-center gap-4">
+        {/* DESKTOP ACTIONS */}
+        <div className="hidden md:flex items-center gap-2">
+
           <Link
             to="/app/donations"
-            className="text-xs font-semibold text-slate-300 hover:text-white transition-colors px-3 py-2"
+            className="px-3 py-2 text-[11px] font-mono font-semibold text-slate-400 hover:text-emerald-400 transition-colors"
           >
-            Donor Portal
+            DONOR PORTAL
           </Link>
+
+          <Link
+            to="/login"
+            className="px-3 py-2 text-[11px] font-mono font-semibold text-slate-400 hover:text-emerald-400 transition-colors"
+          >
+            SIGN IN
+          </Link>
+
+          <Link
+            to="/register"
+            className="px-3 py-2 text-[11px] font-mono font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+          >
+            CREATE ACCOUNT
+          </Link>
+
           <Link
             to="/app/command"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all font-mono group"
+            className="ml-1 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-emerald-400/30 bg-emerald-500 text-[11px] font-mono font-bold tracking-wide text-slate-950 hover:bg-emerald-400 transition-all shadow-[0_0_18px_rgba(16,185,129,0.18)]"
           >
             <Navigation className="w-3.5 h-3.5" />
+
             <span>LAUNCH APP</span>
-            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* MOBILE BUTTON */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+          className="md:hidden p-2.5 rounded-lg border border-slate-800 bg-[#0b1117] text-slate-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-colors"
           aria-label="Toggle Navigation Menu"
         >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {mobileMenuOpen ? (
+            <X className="w-5 h-5" />
+          ) : (
+            <Menu className="w-5 h-5" />
+          )}
         </button>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* MOBILE MENU */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-slate-800 bg-slate-950/95 backdrop-blur-xl px-4 py-6 space-y-4">
-          <nav className="flex flex-col space-y-3">
+        <div className="md:hidden border-t border-slate-800 bg-[#070b0f] px-5 py-5 shadow-2xl">
+
+          <nav className="flex flex-col gap-1">
             {navLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-sm font-medium text-slate-300 hover:text-emerald-400 py-1 transition-colors"
+                className="px-3 py-3 rounded-lg text-sm font-medium text-slate-400 hover:bg-emerald-500/5 hover:text-emerald-400 transition-colors"
               >
                 {link.name}
               </a>
             ))}
           </nav>
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-2.5">
+
+          <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col gap-2">
+
             <Link
               to="/app/donations"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg text-xs font-semibold bg-slate-900 border border-slate-700 text-slate-200"
+              className="w-full rounded-lg border border-slate-800 bg-[#0b1117] px-4 py-3 text-center text-[11px] font-mono font-bold text-slate-300"
             >
-              Donor Portal
+              DONOR PORTAL
             </Link>
+
+            <Link
+              to="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full rounded-lg border border-slate-800 bg-[#0b1117] px-4 py-3 text-center text-[11px] font-mono font-bold text-slate-300"
+            >
+              SIGN IN
+            </Link>
+
+            <Link
+              to="/register"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-center text-[11px] font-mono font-bold text-emerald-400"
+            >
+              CREATE ACCOUNT
+            </Link>
+
             <Link
               to="/app/command"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full text-center py-2.5 rounded-lg text-xs font-bold bg-emerald-500 text-slate-950 font-mono flex items-center justify-center gap-1.5"
+              className="w-full rounded-lg bg-emerald-500 px-4 py-3 text-center text-[11px] font-mono font-bold text-slate-950 flex items-center justify-center gap-2"
             >
               <Navigation className="w-3.5 h-3.5" />
-              <span>LAUNCH APP</span>
+
+              LAUNCH APP
+
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
