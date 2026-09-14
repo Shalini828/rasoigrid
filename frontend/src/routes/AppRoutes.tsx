@@ -7,11 +7,8 @@ import {
   Navigate,
 } from 'react-router-dom';
 
-import { Navbar } from '../components/layout/Navbar';
-import { Footer } from '../components/layout/Footer';
 import { AppShell } from '../components/layout/AppShell';
 
-// Feature Pages
 import { LandingPage } from '../features/landing/LandingPage';
 import { DispatchCommandPage } from '../features/dispatch/DispatchCommandPage';
 import { ForecastPage } from '../features/prediction/ForecastPage';
@@ -21,24 +18,22 @@ import { ReceiverHubPage } from '../features/receiver/ReceiverHubPage';
 import { CircularRecoveryPage } from '../features/circular/CircularRecoveryPage';
 import { ImpactAnalyticsPage } from '../features/impact/ImpactAnalyticsPage';
 
-// Authentication Pages
 import { LoginPage } from '../features/auth/LoginPage';
 import { RegisterPage } from '../features/auth/RegisterPage';
 
-// Public Layout Wrapper
+import { ProtectedRoute } from './ProtectedRoute';
+
+
 const PublicLayoutWrapper: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-[#070b0f] text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-200">
-    <Navbar />
-
-    <main className="flex-1">
+  <div className="min-h-screen bg-white text-slate-900">
+    <main className="min-h-screen">
       {children}
     </main>
-
-    <Footer />
   </div>
 );
+
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -66,61 +61,68 @@ export const AppRoutes: React.FC = () => {
           element={<RegisterPage />}
         />
 
-        {/* Command Platform AppShell Layout */}
-        <Route
-          path="/app"
-          element={<AppShell />}
-        >
+        {/* Protected Application */}
+        <Route element={<ProtectedRoute />}>
           <Route
-            index
-            element={
-              <Navigate
-                to="/app/command"
-                replace
-              />
-            }
-          />
+            path="/app"
+            element={<AppShell />}
+          >
+            <Route
+              index
+              element={
+                <Navigate
+                  to="/app/command"
+                  replace
+                />
+              }
+            />
 
-          <Route
-            path="command"
-            element={<DispatchCommandPage />}
-          />
+            <Route
+              path="command"
+              element={<DispatchCommandPage />}
+            />
 
-          <Route
-            path="forecast"
-            element={<ForecastPage />}
-          />
+            <Route
+              path="forecast"
+              element={<ForecastPage />}
+            />
 
-          <Route
-            path="donations"
-            element={<DonorPortalPage />}
-          />
+            <Route
+              path="donations"
+              element={<DonorPortalPage />}
+            />
 
-          <Route
-            path="logistics"
-            element={<LogisticsFleetPage />}
-          />
+            <Route
+              path="logistics"
+              element={<LogisticsFleetPage />}
+            />
 
-          <Route
-            path="receivers"
-            element={<ReceiverHubPage />}
-          />
+            <Route
+              path="receivers"
+              element={<ReceiverHubPage />}
+            />
 
-          <Route
-            path="circular"
-            element={<CircularRecoveryPage />}
-          />
+            <Route
+              path="circular"
+              element={<CircularRecoveryPage />}
+            />
 
-          <Route
-            path="impact"
-            element={<ImpactAnalyticsPage />}
-          />
+            <Route
+              path="impact"
+              element={<ImpactAnalyticsPage />}
+            />
+          </Route>
         </Route>
 
         {/* Fallback */}
         <Route
           path="*"
-          element={<Navigate to="/" replace />}
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
         />
 
       </Routes>
