@@ -9,6 +9,9 @@ from app.models.ngo import NGOProfile
 from app.models.user import User
 from app.schemas.dispatch import DispatchCreate, DispatchResponse
 from app.dependencies.auth import get_current_user
+from app.models.user import User
+from app.models.donation import Donation
+from app.models.impact import ImpactRecord
 
 
 router = APIRouter(
@@ -268,8 +271,51 @@ def update_dispatch_status(
 
     dispatch.status = status
 
-    # Make volunteer available again when dispatch
-    # is completed or cancelled
+        # Record impact when food is successfully delivered
+    if status == "DELIVERED":
+
+        existing_impact = (
+            db.query(ImpactRecord)
+            .filter(
+                ImpactRecord.donation_id ==
+                dispatch.rescue_request.donation_id
+            )
+            .first()
+        )
+
+        if not existing_impact:
+
+            donation = (
+                db.query(Donation)
+                .filter(
+                    Donation.id ==
+                    dispatch.rescue_request.donation_id
+                )
+                .first()
+            )
+
+            if donation:
+                rescued_kg = (
+                    donation.quantity
+                    if donation.unit.lower() in [
+                        "kg",
+                        "kgs",
+                        "kilogram",
+                        "kilograms"
+                    ]
+                    else 0
+                )
+
+                impact_record = ImpactRecord(
+                    donation_id=donation.id,
+                    rescued_food_kg=rescued_kg,
+                    organic_recovery_kg=0,
+                    successful_rescue=1
+                )
+
+                db.add(impact_record)
+
+    # Make volunteer available again when dispatch is completed/cancelled
     if (
         dispatch.volunteer_id is not None
         and status in ["DELIVERED", "CANCELLED"]
