@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 
@@ -20,6 +23,19 @@ from app.routes.prediction import router as prediction_router
 from app.routes.impact import router as impact_router
 
 app = FastAPI(title="RasoiGrid API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        os.getenv(
+            "FRONTEND_URL",
+            "http://localhost:5173"
+        )
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 Base.metadata.create_all(bind=engine)
 app.include_router(auth_router)
 app.include_router(donation_router)
@@ -37,14 +53,9 @@ def home():
         "message": "RasoiGrid backend is running!"
     }
 
-
-@app.get("/test-db")
-def test_database():
-    with engine.connect() as connection:
-        result = connection.execute(text("SELECT sqlite_version()"))
-        database_name = result.scalar()
-
+@app.get("/health")
+def health_check():
     return {
-        "database": database_name,
-        "status": "connected"
+        "status": "healthy",
+        "service": "RasoiGrid API"
     }
