@@ -60,9 +60,10 @@ def rank_ngos(
         if ngo.verification_status != "VERIFIED":
             continue
 
-        # NGO must have available capacity
-        if ngo.capacity <= 0:
-            continue
+        
+        # NGO must have enough capacity for the full donation
+        if ngo.capacity < donation_quantity:
+          continue
 
         # Coordinates are required for distance-based matching
         if ngo.latitude is None or ngo.longitude is None:

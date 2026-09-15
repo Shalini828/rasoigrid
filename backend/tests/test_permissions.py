@@ -1,5 +1,6 @@
 import sys
 import types
+from datetime import datetime
 
 
 # Provide a lightweight Gemini stub during tests.
@@ -362,3 +363,140 @@ def test_donor_cannot_view_available_donations():
 
     finally:
         app.dependency_overrides.clear()
+
+def test_cancelled_donation_cannot_be_updated():
+    """
+    A cancelled donation must not be editable.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+    from app.models.donation import Donation
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+
+    fake_donor_user = User(
+        id=991,
+        name="Test Cancelled Donation",
+        email="cancelled-donation-test@rasoigrid.com",
+        phone="9999999991",
+        password_hash="test-password",
+        role="DONOR"
+    )
+
+    try:
+        existing_user = (
+            db.query(User)
+            .filter(User.id == 991)
+            .first()
+        )
+
+        if not existing_user:
+            db.add(fake_donor_user)
+            db.commit()
+
+        test_donation = Donation(
+            donor_id=991,
+            food_name="Cancelled Test Food",
+            food_category="COOKED_MEAL",
+            quantity=10,
+            unit="kg",
+            prepared_at=datetime(2026, 9, 14, 10, 0),
+            consume_before=datetime(2026, 9, 14, 18, 0),
+            storage_condition="REFRIGERATED",
+            packaging_available=True,
+            pickup_required=True,
+            latitude=30.3165,
+            longitude=78.0322,
+            status="CANCELLED"
+        )
+
+        db.add(test_donation)
+        db.commit()
+        db.refresh(test_donation)
+
+        app.dependency_overrides[get_current_user] = (
+            lambda: fake_donor_user
+        )
+
+        response = client.put(
+            f"/api/donations/{test_donation.id}",
+            json={
+                "food_name": "Updated Food",
+                "food_category": "COOKED_MEAL",
+                "quantity": 20,
+                "unit": "kg",
+                "prepared_at": "2026-09-14T10:00:00",
+                "consume_before": "2026-09-14T18:00:00",
+                "storage_condition": "REFRIGERATED",
+                "packaging_available": True,
+                "pickup_required": True,
+                "latitude": 30.3165,
+                "longitude": 78.0322
+            }
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Only available donations can be updated"
+        )
+
+    finally:
+        app.dependency_overrides.clear()
+
+        db.query(Donation).filter(
+            Donation.donor_id == 991
+        ).delete()
+
+        db.query(User).filter(
+            User.id == 991
+        ).delete()
+
+        db.commit()
+        db.close()
+
+def test_donor_cannot_verify_ngo():
+    """
+    A DONOR must not be allowed to verify an NGO.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+
+    fake_donor_user = User(
+        id=990,
+        name="Test Donor NGO Verification",
+        email="donor-ngo-verify-test@rasoigrid.com",
+        phone="9999999990",
+        password_hash="test-password",
+        role="DONOR"
+    )
+
+    app.dependency_overrides[get_current_user] = (
+        lambda: fake_donor_user
+    )
+
+    try:
+        response = client.patch(
+            "/api/ngos/1/verify"
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "Only administrators can verify NGOs"
+        )
+
+    finally:
+        app.dependency_overrides.clear()
+
+def test_impact_endpoint_returns_total_donations():
+    response = client.get("/api/impact/")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "total_donations" in data
+    assert isinstance(data["total_donations"], int)
+    assert data["total_donations"] >= 0

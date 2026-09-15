@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.impact import ImpactRecord
 from app.services.impact import calculate_impact
+from app.models.donation import Donation
 
 router = APIRouter(
     prefix="/api/impact",
@@ -32,7 +33,7 @@ def get_impact(
         for record in records
     )
 
-    total_donations = len(records)
+    total_donations = db.query(Donation).count()
 
     return calculate_impact(
         rescued_food_kg=rescued_food_kg,

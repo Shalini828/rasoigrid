@@ -1,18 +1,23 @@
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import Session
+
+from app.models.audit import AuditEvent
+
 
 def create_audit_event(
     donation_id: int,
     action: str,
     actor_type: str,
     actor_id: int | None = None,
-    details: str | None = None
+    details: str | None = None,
+    db: Session | None = None
 ):
     """
-    Create a structured audit event for a donation.
+    Create an audit event for a donation.
 
-    This records workflow history and does not make
-    any food-safety certification claim.
+    If a database session is provided, the event is
+    persisted to the audit_events table.
     """
 
     allowed_actions = [
@@ -32,11 +37,29 @@ def create_audit_event(
             f"Invalid audit action: {action}"
         )
 
-    return {
+    timestamp = datetime.now(timezone.utc)
+
+    event_data = {
         "donation_id": donation_id,
         "action": action,
         "actor_type": actor_type,
         "actor_id": actor_id,
         "details": details,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": timestamp.isoformat()
     }
+
+    if db is not None:
+        event = AuditEvent(
+            donation_id=donation_id,
+            action=action,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            details=details,
+            timestamp=timestamp
+        )
+
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+
+    return event_data

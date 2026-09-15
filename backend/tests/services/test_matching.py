@@ -52,3 +52,33 @@ def test_unverified_ngo_is_excluded():
 
     assert len(result) == 1
     assert result[0]["ngo_id"] == 1
+
+def test_ngo_with_insufficient_capacity_is_excluded():
+    ngos = [
+        TestNGO(
+            1,
+            "Small Capacity NGO",
+            28.6200,
+            77.2100,
+            10,
+            "VERIFIED"
+        ),
+        TestNGO(
+            2,
+            "Sufficient Capacity NGO",
+            28.6150,
+            77.2200,
+            100,
+            "VERIFIED"
+        )
+    ]
+
+    result = rank_ngos(
+        28.6139,
+        77.2090,
+        50,
+        ngos
+    )
+
+    assert len(result) == 1
+    assert result[0]["ngo_id"] == 2
