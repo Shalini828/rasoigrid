@@ -67,6 +67,12 @@ def get_my_volunteer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "VOLUNTEER":
+        raise HTTPException(
+            status_code=403,
+            detail="Only volunteer users can view volunteer profile"
+        )
+
     volunteer = (
         db.query(VolunteerProfile)
         .filter(VolunteerProfile.user_id == current_user.id)
@@ -202,3 +208,38 @@ def get_donation_volunteers(
     volunteers.sort(key=distance)
 
     return volunteers
+
+def test_donor_cannot_view_volunteer_profile():
+    """
+    A DONOR must not be allowed to view a volunteer profile.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+
+    fake_donor_user = User(
+        id=994,
+        name="Test Donor Volunteer Profile",
+        email="donor-volunteer-profile-test@rasoigrid.com",
+        phone="9999999994",
+        password_hash="test-password",
+        role="DONOR"
+    )
+
+
+    app.dependency_overrides[get_current_user] = (
+        lambda: fake_donor_user
+    )
+
+    try:
+        response = client.get(
+            "/api/volunteers/my"
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "Only volunteer users can view volunteer profile"
+        )
+
+    finally:
+        app.dependency_overrides.clear()
