@@ -11,6 +11,7 @@ from app.schemas.rescue_request import (
 )
 from app.dependencies.auth import get_current_user
 from app.models.user import User
+from app.services.audit import create_audit_event
 
 
 router = APIRouter(
@@ -178,7 +179,17 @@ def update_rescue_request_status(
         if donation:
             donation.status = "CLAIMED"
 
-    db.commit()
+        db.commit()
     db.refresh(rescue_request)
+
+    if status == "ACCEPTED":
+        create_audit_event(
+            donation_id=rescue_request.donation_id,
+            action="ACCEPTED",
+            actor_type="NGO",
+            actor_id=current_user.id,
+            details="Rescue request accepted",
+            db=db
+        )
 
     return rescue_request

@@ -12,6 +12,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.donation import Donation
 from app.models.impact import ImpactRecord
+from app.services.audit import create_audit_event
 
 
 router = APIRouter(
@@ -141,11 +142,20 @@ def create_dispatch(
     if volunteer:
         volunteer.availability_status = "UNAVAILABLE"
 
-    db.commit()
+    db.flush()
+
+    create_audit_event(
+        donation_id=rescue_request.donation_id,
+        action="DISPATCHED",
+        actor_type="NGO",
+        actor_id=current_user.id,
+        details="Dispatch created",
+        db=db
+    )
+
     db.refresh(new_dispatch)
 
     return new_dispatch
-
 
 @router.get("/my", response_model=list[DispatchResponse])
 def get_my_dispatches(
@@ -223,21 +233,22 @@ def update_dispatch_status(
             detail="Dispatch not found"
         )
     # If the user is a volunteer, verify they are assigned to this dispatch
+       
     if current_user.role == "VOLUNTEER":
         assigned_volunteer = (
-        db.query(VolunteerProfile)
-        .filter(
-            VolunteerProfile.id == dispatch.volunteer_id,
-            VolunteerProfile.user_id == current_user.id
+            db.query(VolunteerProfile)
+            .filter(
+                VolunteerProfile.id == dispatch.volunteer_id,
+                VolunteerProfile.user_id == current_user.id
+            )
+            .first()
         )
-        .first()
-    )
 
-    if not assigned_volunteer:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not assigned to this dispatch"
-        )
+        if not assigned_volunteer:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not assigned to this dispatch"
+            )
 
     # Get related rescue request
     rescue_request = (
@@ -255,21 +266,22 @@ def update_dispatch_status(
         )
 
     # Check that the current user owns the related NGO
-    ngo = (
-        db.query(NGOProfile)
-        .filter(
-            NGOProfile.id == rescue_request.ngo_id,
-            NGOProfile.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if not ngo:
-        raise HTTPException(
-            status_code=403,
-            detail="You are not authorized to update this dispatch"
+        # Only NGO users need to own the related NGO profile
+    if current_user.role == "NGO":
+        ngo = (
+            db.query(NGOProfile)
+            .filter(
+                NGOProfile.id == rescue_request.ngo_id,
+                NGOProfile.user_id == current_user.id
+            )
+            .first()
         )
 
+        if not ngo:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to update this dispatch"
+            )
         # Validate status based on user role
     if current_user.role == "VOLUNTEER":
         allowed_statuses = [

@@ -8,6 +8,8 @@ from app.schemas.ngo import NGOResponse
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.ngo import NGOProfile
+from app.services.matching import calculate_distance
+from app.services.audit import create_audit_event
 
 router = APIRouter(
     prefix="/api/donations",
@@ -53,6 +55,15 @@ def create_donation(
     db.add(new_donation)
     db.commit()
     db.refresh(new_donation)
+
+    create_audit_event(
+        donation_id=new_donation.id,
+        action="DONATED",
+        actor_type="DONOR",
+        actor_id=current_user.id,
+        details="Donation created",
+        db=db
+    )
 
     return new_donation
 
@@ -109,10 +120,16 @@ def update_donation(
     )
 
     if not existing_donation:
-        raise HTTPException(
-            status_code=404,
-            detail="Donation not found"
-        )
+     raise HTTPException(
+        status_code=404,
+        detail="Donation not found"
+    )
+
+    if existing_donation.status != "AVAILABLE":
+      raise HTTPException(
+        status_code=400,
+        detail="Only available donations can be updated"
+    )
 
     existing_donation.food_name = donation.food_name
     existing_donation.food_category = donation.food_category
@@ -161,8 +178,19 @@ def cancel_donation(
 
     donation.status = "CANCELLED"
 
+    donation.status = "CANCELLED"
+
     db.commit()
     db.refresh(donation)
+
+    create_audit_event(
+        donation_id=donation.id,
+        action="CANCELLED",
+        actor_type="DONOR",
+        actor_id=current_user.id,
+        details="Donation cancelled",
+        db=db
+    )
 
     return donation
 
@@ -192,24 +220,26 @@ def get_donation_matches(
         db.query(NGOProfile)
         .filter(
             NGOProfile.verification_status == "VERIFIED",
-            NGOProfile.capacity > 0
+            NGOProfile.capacity >= donation.quantity
         )
         .all()
     )
 
     def distance(ngo):
-        if (
-            donation.latitude is None
-            or donation.longitude is None
-            or ngo.latitude is None
-            or ngo.longitude is None
-        ):
-            return float("inf")
+     if (
+        donation.latitude is None
+        or donation.longitude is None
+        or ngo.latitude is None
+        or ngo.longitude is None
+    ):
+        return float("inf")
 
-        lat_diff = ngo.latitude - donation.latitude
-        lon_diff = ngo.longitude - donation.longitude
-
-        return (lat_diff ** 2 + lon_diff ** 2) ** 0.5
+    return calculate_distance(
+        donation.latitude,
+        donation.longitude,
+        ngo.latitude,
+        ngo.longitude
+    )
 
     ngos.sort(key=distance)
 
