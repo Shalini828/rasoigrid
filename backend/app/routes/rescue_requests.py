@@ -33,6 +33,14 @@ def create_rescue_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can create rescue requests"
+        )
+
+    # 1. Check that donation exists
+    
     # 1. Check that donation exists
     donation = (
         db.query(Donation)
@@ -103,6 +111,11 @@ def get_my_rescue_requests(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can view rescue requests"
+        )
     requests = (
         db.query(RescueRequest)
         .filter(
@@ -125,6 +138,12 @@ def update_rescue_request_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can update rescue request status"
+        )
+
     rescue_request = (
         db.query(RescueRequest)
         .join(NGOProfile, RescueRequest.ngo_id == NGOProfile.id)

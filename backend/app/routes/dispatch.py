@@ -64,23 +64,22 @@ def create_dispatch(
         )
 
     # 3. Check that the current user owns the NGO
-    ngo = (
-        db.query(NGOProfile)
-        .filter(
-            NGOProfile.id == rescue_request.ngo_id,
-            NGOProfile.user_id == current_user.id
-        )
-        .first()
-    )
-
-    if not ngo:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Only the NGO that owns this rescue request "
-                "can create a dispatch"
+        # NGO must own the related NGO profile
+    if current_user.role == "NGO":
+        ngo = (
+            db.query(NGOProfile)
+            .filter(
+                NGOProfile.id == rescue_request.ngo_id,
+                NGOProfile.user_id == current_user.id
             )
+            .first()
         )
+
+        if not ngo:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to update this dispatch"
+            )
 
     # 4. Prevent duplicate dispatches
     existing_dispatch = (
@@ -201,11 +200,12 @@ def update_dispatch_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Only NGO users can update dispatches
-    if current_user.role != "NGO":
+    # Only NGO users or the assigned volunteer can update dispatches
+      
+    if current_user.role not in ["NGO", "VOLUNTEER"]:
         raise HTTPException(
             status_code=403,
-            detail="Only NGO users can update dispatches"
+            detail="Only NGO users or assigned volunteers can update dispatches"
         )
 
     # Find dispatch
@@ -221,6 +221,22 @@ def update_dispatch_status(
         raise HTTPException(
             status_code=404,
             detail="Dispatch not found"
+        )
+    # If the user is a volunteer, verify they are assigned to this dispatch
+    if current_user.role == "VOLUNTEER":
+        assigned_volunteer = (
+        db.query(VolunteerProfile)
+        .filter(
+            VolunteerProfile.id == dispatch.volunteer_id,
+            VolunteerProfile.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not assigned_volunteer:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not assigned to this dispatch"
         )
 
     # Get related rescue request
@@ -254,19 +270,25 @@ def update_dispatch_status(
             detail="You are not authorized to update this dispatch"
         )
 
-    # Validate status
-    allowed_statuses = [
-        "PENDING",
-        "ASSIGNED",
-        "PICKED_UP",
-        "DELIVERED",
-        "CANCELLED"
-    ]
+        # Validate status based on user role
+    if current_user.role == "VOLUNTEER":
+        allowed_statuses = [
+            "PICKED_UP",
+            "DELIVERED"
+        ]
+    else:
+        allowed_statuses = [
+            "PENDING",
+            "ASSIGNED",
+            "PICKED_UP",
+            "DELIVERED",
+            "CANCELLED"
+        ]
 
     if status not in allowed_statuses:
         raise HTTPException(
-            status_code=400,
-            detail="Invalid dispatch status"
+            status_code=403,
+            detail="You are not allowed to set this dispatch status"
         )
 
     dispatch.status = status
@@ -316,6 +338,7 @@ def update_dispatch_status(
                 db.add(impact_record)
 
     # Make volunteer available again when dispatch is completed/cancelled
+            
     if (
         dispatch.volunteer_id is not None
         and status in ["DELIVERED", "CANCELLED"]
@@ -334,4 +357,4 @@ def update_dispatch_status(
     db.commit()
     db.refresh(dispatch)
 
-    return dispatch
+    return dispatch 

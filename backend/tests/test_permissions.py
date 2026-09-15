@@ -220,3 +220,77 @@ def test_health_endpoint():
         "status": "healthy",
         "service": "RasoiGrid API"
     }
+
+def test_donor_cannot_update_dispatch():
+    """
+    A DONOR must not be allowed to update a dispatch.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+
+    fake_donor_user = User(
+        id=996,
+        name="Test Donor",
+        email="donor-dispatch-test@rasoigrid.com",
+        phone="9999999996",
+        password_hash="test-password",
+        role="DONOR"
+    )
+
+    app.dependency_overrides[get_current_user] = (
+        lambda: fake_donor_user
+    )
+
+    try:
+        response = client.patch(
+            "/api/dispatches/1/status",
+            params={
+                "status": "DELIVERED"
+            }
+        )
+
+        assert response.status_code == 403
+
+    finally:
+        app.dependency_overrides.clear()
+
+def test_unassigned_volunteer_cannot_update_dispatch():
+    """
+    A volunteer who is not assigned to the dispatch
+    must not be allowed to update it.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+
+    fake_volunteer_user = User(
+        id=995,
+        name="Test Volunteer",
+        email="volunteer-dispatch-test@rasoigrid.com",
+        phone="9999999995",
+        password_hash="test-password",
+        role="VOLUNTEER"
+    )
+
+    app.dependency_overrides[get_current_user] = (
+        lambda: fake_volunteer_user
+    )
+
+    try:
+        response = client.patch(
+            "/api/dispatches/1/status",
+            params={
+                "status": "PICKED_UP"
+            }
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "You are not assigned to this dispatch"
+        )
+
+    finally:
+        app.dependency_overrides.clear()
+
+from unittest.mock import MagicMock
