@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
 import {
   ArrowRight,
   BrainCircuit,
@@ -17,7 +17,7 @@ import {
   Truck,
   UtensilsCrossed,
   Users,
-} from 'lucide-react';
+} from "lucide-react";
 
 export const LandingPage: React.FC = () => {
   return (
@@ -76,22 +76,13 @@ export const LandingPage: React.FC = () => {
           </nav>
 
           {/* Auth */}
-          <div className="flex items-center gap-5">
-            <Link
-              to="/login"
-              className="hidden text-sm font-semibold text-[#13294b] transition hover:text-emerald-600 sm:block"
-            >
-              Sign in
-            </Link>
-
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-            >
-              Create account
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+          <a
+            href="#choose-role"
+            className="flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold tracking-[0.12em] text-emerald-700 shadow-sm transition hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-md"
+          >
+            <Users className="mr-2 h-4 w-4 text-emerald-600" />
+            <span>CHOOSE YOUR ROLE</span>
+          </a>
         </div>
       </header>
 
@@ -119,11 +110,10 @@ export const LandingPage: React.FC = () => {
               </h1>
 
               <p className="mt-8 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-                RasoiGrid is an urban intelligence and coordination layer
-                that helps make food surplus visible, connects eligible
-                surplus with verified food-rescue networks, and guides
-                unavoidable organic material toward appropriate circular
-                recovery.
+                RasoiGrid is an urban intelligence and coordination layer that
+                helps make food surplus visible, connects eligible surplus with
+                verified food-rescue networks, and guides unavoidable organic
+                material toward appropriate circular recovery.
               </p>
 
               {/* Principle pills */}
@@ -145,8 +135,7 @@ export const LandingPage: React.FC = () => {
               </div>
 
               <p className="mt-6 text-sm text-slate-500">
-                Operational features are available only to authenticated
-                users.
+                Operational features are available only to authenticated users.
               </p>
             </div>
 
@@ -198,21 +187,19 @@ export const LandingPage: React.FC = () => {
                       </h3>
 
                       <p className="mt-2 text-sm leading-6 text-slate-600">
-                        Eligible food moves toward verified community
-                        receiving organizations.
+                        Eligible food moves toward verified community receiving
+                        organizations.
                       </p>
                     </div>
 
                     <div className="rounded-2xl border border-lime-200 bg-lime-50/70 p-5">
                       <Recycle className="h-6 w-6 text-lime-700" />
 
-                      <h3 className="mt-4 font-bold text-[#13294b]">
-                        Recover
-                      </h3>
+                      <h3 className="mt-4 font-bold text-[#13294b]">Recover</h3>
 
                       <p className="mt-2 text-sm leading-6 text-slate-600">
-                        Unavoidable organic material can move toward
-                        appropriate circular recovery.
+                        Unavoidable organic material can move toward appropriate
+                        circular recovery.
                       </p>
                     </div>
                   </div>
@@ -221,12 +208,70 @@ export const LandingPage: React.FC = () => {
                 <div className="mt-6 flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                   <ShieldCheck className="h-5 w-5 text-emerald-600" />
                   <span>
-                    Human-verified safety decisions remain part of the
-                    handover.
+                    Human-verified safety decisions remain part of the handover.
                   </span>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* =========================================================
+            CHOOSE YOUR ROLE
+        ========================================================= */}
+        <section
+          id="choose-role"
+          className="border-b border-slate-200 bg-white"
+        >
+          <div className="mx-auto max-w-[1320px] px-6 py-16 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center">
+              <SectionLabel icon={<Users className="h-4 w-4" />}>
+                CHOOSE YOUR ROLE
+              </SectionLabel>
+
+              <h2 className="mt-6 text-3xl font-extrabold tracking-[-0.03em] text-[#13294b] sm:text-4xl">
+                Enter RasoiGrid through your role.
+              </h2>
+
+              <p className="mt-4 text-base leading-7 text-slate-600 sm:text-lg">
+                Choose the workspace that matches what you do in the food
+                recovery loop.
+              </p>
+            </div>
+
+            <div className="mx-auto mt-10 grid max-w-6xl gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <LoginRoleCard
+                icon={<Building2 className="h-7 w-7" />}
+                role="DONOR"
+                title="Login as Donor"
+                description="Report surplus food and track your contributions."
+              />
+
+              <LoginRoleCard
+                icon={<HeartHandshake className="h-7 w-7" />}
+                role="NGO"
+                title="Login as NGO"
+                description="Coordinate food rescue and receiving operations."
+              />
+
+              <LoginRoleCard
+                icon={<Truck className="h-7 w-7" />}
+                role="VOLUNTEER"
+                title="Login as Volunteer"
+                description="Support pickup, dispatch, and delivery logistics."
+              />
+
+              <LoginRoleCard
+                icon={<ShieldCheck className="h-7 w-7" />}
+                role="ADMIN"
+                title="Login as Admin"
+                description="Access mission control and oversee the network."
+              />
+            </div>
+
+            <p className="mt-6 text-center text-xs text-slate-400">
+              Admin access is restricted to authorized accounts.
+            </p>
           </div>
         </section>
 
@@ -242,18 +287,15 @@ export const LandingPage: React.FC = () => {
             <div className="mt-7 max-w-4xl">
               <h2 className="text-4xl font-extrabold leading-tight tracking-[-0.03em] text-[#13294b] sm:text-5xl">
                 Surplus food is often a
-                <span className="text-emerald-600">
-                  {' '}
-                  coordination problem.
-                </span>
+                <span className="text-emerald-600"> coordination problem.</span>
               </h2>
 
               <p className="mt-6 text-lg leading-8 text-slate-600">
                 Food surplus can appear suddenly at hotels, restaurants,
                 cafeterias, events, and food markets. The challenge is not
                 simply identifying the food. It is coordinating the right
-                information, receiving organization, transport pathway,
-                timing, and recovery option before the opportunity is lost.
+                information, receiving organization, transport pathway, timing,
+                and recovery option before the opportunity is lost.
               </p>
             </div>
 
@@ -312,9 +354,9 @@ export const LandingPage: React.FC = () => {
                 icon={<BrainCircuit className="h-7 w-7" />}
                 description="Use reported surplus information and contextual inputs to estimate urgency and support operational prioritization."
                 points={[
-                  'Surplus information',
-                  'Quantity and timing',
-                  'AI-assisted prioritization',
+                  "Surplus information",
+                  "Quantity and timing",
+                  "AI-assisted prioritization",
                 ]}
               />
 
@@ -324,9 +366,9 @@ export const LandingPage: React.FC = () => {
                 icon={<Truck className="h-7 w-7" />}
                 description="Identify suitable verified recovery pathways and help coordinate the people, organizations, and transport needed."
                 points={[
-                  'Verified receivers',
-                  'Location-aware matching',
-                  'Pickup coordination',
+                  "Verified receivers",
+                  "Location-aware matching",
+                  "Pickup coordination",
                 ]}
                 highlighted
               />
@@ -336,11 +378,7 @@ export const LandingPage: React.FC = () => {
                 title="Recover"
                 icon={<Recycle className="h-7 w-7" />}
                 description="Prioritize human recovery when appropriate, then guide unavoidable organic material toward suitable circular pathways."
-                points={[
-                  'People first',
-                  'Organic recovery',
-                  'Landfill last',
-                ]}
+                points={["People first", "Organic recovery", "Landfill last"]}
               />
             </div>
 
@@ -471,8 +509,8 @@ export const LandingPage: React.FC = () => {
 
                 <p className="mt-6 text-lg leading-8 text-slate-600">
                   When surplus is appropriate for human recovery, RasoiGrid
-                  prioritizes coordination with verified receiving
-                  organizations before circular disposal pathways.
+                  prioritizes coordination with verified receiving organizations
+                  before circular disposal pathways.
                 </p>
 
                 <div className="mt-8 space-y-5">
@@ -587,10 +625,9 @@ export const LandingPage: React.FC = () => {
                 <ShieldCheck className="h-6 w-6 shrink-0 text-emerald-600" />
 
                 <p className="text-sm leading-6 text-slate-600">
-                  Operational tools are intentionally behind authentication
-                  so actions such as reporting, matching, requests, dispatch,
-                  and status updates are associated with the appropriate user
-                  role.
+                  Operational tools are intentionally behind authentication so
+                  actions such as reporting, matching, requests, dispatch, and
+                  status updates are associated with the appropriate user role.
                 </p>
               </div>
             </div>
@@ -657,16 +694,16 @@ export const LandingPage: React.FC = () => {
                 <h2 className="mt-7 text-4xl font-extrabold leading-tight tracking-[-0.03em] text-[#13294b] sm:text-5xl">
                   When human consumption is not an option,
                   <span className="text-lime-700">
-                    {' '}
+                    {" "}
                     recovery still matters.
                   </span>
                 </h2>
 
                 <p className="mt-6 text-lg leading-8 text-slate-600">
-                  Kitchen preparation scraps, unsuitable organic material,
-                  and other unavoidable residues can be directed toward
-                  appropriate circular recovery pathways instead of being
-                  treated as the default endpoint.
+                  Kitchen preparation scraps, unsuitable organic material, and
+                  other unavoidable residues can be directed toward appropriate
+                  circular recovery pathways instead of being treated as the
+                  default endpoint.
                 </p>
 
                 <div className="mt-8 space-y-5">
@@ -788,8 +825,8 @@ export const LandingPage: React.FC = () => {
               </Link>
 
               <p className="mt-5 max-w-md text-sm leading-6 text-slate-500">
-                An urban intelligence and coordination layer for food
-                surplus, rescue, and circular recovery.
+                An urban intelligence and coordination layer for food surplus,
+                rescue, and circular recovery.
               </p>
 
               <div className="mt-5 text-xs font-medium text-slate-400">
@@ -876,10 +913,7 @@ interface SectionLabelProps {
   icon: React.ReactNode;
 }
 
-const SectionLabel: React.FC<SectionLabelProps> = ({
-  children,
-  icon,
-}) => {
+const SectionLabel: React.FC<SectionLabelProps> = ({ children, icon }) => {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold tracking-[0.18em] text-emerald-700">
       {icon}
@@ -907,16 +941,16 @@ const PathwayStep: React.FC<PathwayStepProps> = ({
     <div
       className={`rounded-2xl border p-5 ${
         highlighted
-          ? 'border-emerald-200 bg-emerald-50/70'
-          : 'border-slate-200 bg-slate-50'
+          ? "border-emerald-200 bg-emerald-50/70"
+          : "border-slate-200 bg-slate-50"
       }`}
     >
       <div className="flex gap-4">
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
             highlighted
-              ? 'bg-white text-emerald-600'
-              : 'bg-white text-emerald-600'
+              ? "bg-white text-emerald-600"
+              : "bg-white text-emerald-600"
           }`}
         >
           {icon}
@@ -929,9 +963,7 @@ const PathwayStep: React.FC<PathwayStepProps> = ({
 
           <h3 className="mt-1 font-bold text-[#13294b]">{title}</h3>
 
-          <p className="mt-1 text-sm leading-6 text-slate-600">
-            {description}
-          </p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
         </div>
       </div>
     </div>
@@ -957,9 +989,7 @@ const ProblemCard: React.FC<ProblemCardProps> = ({
 
       <h3 className="mt-5 text-lg font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {description}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
     </div>
   );
 };
@@ -985,16 +1015,16 @@ const ProcessCard: React.FC<ProcessCardProps> = ({
     <div
       className={`rounded-[24px] border p-7 shadow-sm ${
         highlighted
-          ? 'border-emerald-300 bg-white shadow-[0_20px_50px_rgba(16,185,129,0.08)]'
-          : 'border-slate-200 bg-white'
+          ? "border-emerald-300 bg-white shadow-[0_20px_50px_rgba(16,185,129,0.08)]"
+          : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex items-center justify-between">
         <div
           className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
             highlighted
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'bg-slate-100 text-slate-500'
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-slate-100 text-slate-500"
           }`}
         >
           {number} // {title.toUpperCase()}
@@ -1005,9 +1035,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({
 
       <h3 className="mt-7 text-2xl font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-4 text-sm leading-7 text-slate-600">
-        {description}
-      </p>
+      <p className="mt-4 text-sm leading-7 text-slate-600">{description}</p>
 
       <div className="mt-6 border-t border-slate-200 pt-5">
         <div className="space-y-3">
@@ -1045,9 +1073,7 @@ const IntelligenceCard: React.FC<IntelligenceCardProps> = ({
 
       <h3 className="mt-5 font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {description}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
     </div>
   );
 };
@@ -1057,10 +1083,7 @@ interface FeatureRowProps {
   description: string;
 }
 
-const FeatureRow: React.FC<FeatureRowProps> = ({
-  title,
-  description,
-}) => {
+const FeatureRow: React.FC<FeatureRowProps> = ({ title, description }) => {
   return (
     <div className="flex gap-3">
       <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
@@ -1068,9 +1091,7 @@ const FeatureRow: React.FC<FeatureRowProps> = ({
       <div>
         <h3 className="font-bold text-[#13294b]">{title}</h3>
 
-        <p className="mt-1 text-sm leading-6 text-slate-600">
-          {description}
-        </p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
       </div>
     </div>
   );
@@ -1091,18 +1112,16 @@ const InfoRow: React.FC<InfoRowProps> = ({
     <div
       className={`rounded-xl border p-4 ${
         highlighted
-          ? 'border-emerald-200 bg-emerald-50'
-          : 'border-slate-200 bg-slate-50'
+          ? "border-emerald-200 bg-emerald-50"
+          : "border-slate-200 bg-slate-50"
       }`}
     >
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <span className="text-sm font-medium text-slate-500">
-          {label}
-        </span>
+        <span className="text-sm font-medium text-slate-500">{label}</span>
 
         <span
           className={`text-sm font-bold ${
-            highlighted ? 'text-emerald-700' : 'text-[#13294b]'
+            highlighted ? "text-emerald-700" : "text-[#13294b]"
           }`}
         >
           {value}
@@ -1112,17 +1131,54 @@ const InfoRow: React.FC<InfoRowProps> = ({
   );
 };
 
+interface LoginRoleCardProps {
+  icon: React.ReactNode;
+  role: "DONOR" | "NGO" | "VOLUNTEER" | "ADMIN";
+  title: string;
+  description: string;
+}
+
+const LoginRoleCard: React.FC<LoginRoleCardProps> = ({
+  icon,
+  role,
+  title,
+  description,
+}) => {
+  return (
+    <Link
+      to={`/login?role=${role}`}
+      className="group rounded-[24px] border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-1 hover:border-emerald-300 hover:shadow-md"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-100">
+          {icon}
+        </div>
+
+        <ArrowRight className="h-5 w-5 text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-600" />
+      </div>
+
+      <div className="mt-5 text-xs font-bold tracking-[0.16em] text-emerald-600">
+        {role}
+      </div>
+
+      <h3 className="mt-2 text-lg font-bold text-[#13294b]">{title}</h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+
+      <div className="mt-5 text-sm font-semibold text-emerald-700">
+        Continue to sign in →
+      </div>
+    </Link>
+  );
+};
+
 interface RoleCardProps {
   icon: React.ReactNode;
   title: string;
   description: string;
 }
 
-const RoleCard: React.FC<RoleCardProps> = ({
-  icon,
-  title,
-  description,
-}) => {
+const RoleCard: React.FC<RoleCardProps> = ({ icon, title, description }) => {
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
@@ -1131,9 +1187,7 @@ const RoleCard: React.FC<RoleCardProps> = ({
 
       <h3 className="mt-6 text-xl font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-3 text-sm leading-7 text-slate-600">
-        {description}
-      </p>
+      <p className="mt-3 text-sm leading-7 text-slate-600">{description}</p>
     </div>
   );
 };
@@ -1155,9 +1209,7 @@ const RecoveryCard: React.FC<RecoveryCardProps> = ({
 
       <h3 className="mt-4 font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-2 text-xs leading-5 text-slate-500">
-        {description}
-      </p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{description}</p>
     </div>
   );
 };
@@ -1181,33 +1233,27 @@ const HierarchyCard: React.FC<HierarchyCardProps> = ({
     <div
       className={`rounded-[24px] border p-7 ${
         active
-          ? 'border-emerald-300 bg-emerald-50'
-          : 'border-slate-200 bg-white'
+          ? "border-emerald-300 bg-emerald-50"
+          : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex items-center justify-between">
         <span
           className={`text-xs font-bold tracking-[0.18em] ${
-            active ? 'text-emerald-700' : 'text-slate-400'
+            active ? "text-emerald-700" : "text-slate-400"
           }`}
         >
           {step}
         </span>
 
-        <div
-          className={`${
-            active ? 'text-emerald-600' : 'text-slate-500'
-          }`}
-        >
+        <div className={`${active ? "text-emerald-600" : "text-slate-500"}`}>
           {icon}
         </div>
       </div>
 
       <h3 className="mt-6 text-xl font-bold text-[#13294b]">{title}</h3>
 
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {description}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{description}</p>
     </div>
   );
 };
@@ -1218,11 +1264,7 @@ interface FlowItemProps {
   description: string;
 }
 
-const FlowItem: React.FC<FlowItemProps> = ({
-  icon,
-  title,
-  description,
-}) => {
+const FlowItem: React.FC<FlowItemProps> = ({ icon, title, description }) => {
   return (
     <div className="flex items-center gap-3">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">

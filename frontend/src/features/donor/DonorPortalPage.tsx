@@ -14,33 +14,65 @@ import {
   PackageCheck,
   Sparkles,
 } from 'lucide-react';
+
 import type {
   FoodCategory,
   RecoveryDestinationType,
 } from '../../core/types/models';
+
 import { useRescueStore } from '../../stores/useRescueStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+
 import confetti from 'canvas-confetti';
 
 export const DonorPortalPage: React.FC = () => {
   const { logSurplus, surplusList } = useRescueStore();
 
-  const [donorName, setDonorName] = useState('Taj Lands End Hotel');
-  const [donorType, setDonorType] = useState<any>('hotel_buffet');
+  /*
+   * Get the currently authenticated user.
+   */
+  const user = useAuthStore(
+    (state) => state.user
+  );
+
+  /*
+   * Use the registered user's name instead of
+   * the old hardcoded demo donor.
+   */
+  const [donorName, setDonorName] = useState(
+    user?.name || ''
+  );
+
+  const [donorType, setDonorType] =
+    useState<any>('hotel_buffet');
+
   const [foodName, setFoodName] = useState('');
+
   const [category, setCategory] =
     useState<FoodCategory>('cooked_meals');
-  const [quantityKg, setQuantityKg] = useState<number>(45);
-  const [portions, setPortions] = useState<number>(120);
+
+  const [quantityKg, setQuantityKg] =
+    useState<number>(45);
+
+  const [portions, setPortions] =
+    useState<number>(120);
+
   const [tempRequirement, setTempRequirement] =
     useState<
       'hot_above_60c' | 'ambient' | 'chilled_below_4c'
     >('hot_above_60c');
-  const [neighborhood, setNeighborhood] = useState('Bandra West');
+
+  const [neighborhood, setNeighborhood] =
+    useState('Bandra West');
+
   const [targetDestinationType, setTargetDestinationType] =
     useState<RecoveryDestinationType>('shelter');
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [showSuccessModal, setShowSuccessModal] =
+    useState(false);
 
   const applyPreset = (preset: {
     food: string;
@@ -61,180 +93,252 @@ export const DonorPortalPage: React.FC = () => {
     setTargetDestinationType(preset.dest);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (
+    e: React.FormEvent
+  ) => {
     e.preventDefault();
 
-    if (!foodName.trim()) return;
+    if (!foodName.trim()) {
+      return;
+    }
+
+    if (!donorName.trim()) {
+      setDonorName(user?.name || '');
+      return;
+    }
 
     setIsSubmitting(true);
 
-    await logSurplus({
-      donorName,
-      donorType,
-      foodName,
-      category,
-      quantityKg: Number(quantityKg),
-      portions: Number(portions),
-      cookedAt: new Date(
-        Date.now() - 30 * 60 * 1000
-      ).toISOString(),
-      safeUntil: new Date(
-        Date.now() + 4 * 60 * 60 * 1000
-      ).toISOString(),
-      tempRequirement,
-      dietaryTags: ['vegetarian', 'halal'],
-      location: {
-        lat: 19.043,
-        lng: 72.819,
-        address: 'BJ Road, Bandra Bandstand',
-        neighborhood,
-        city: 'Mumbai',
-      },
-      priority: quantityKg > 50 ? 'critical' : 'high',
-      confidenceScore: 98,
-      targetDestinationType,
-    });
+    try {
+      await logSurplus({
+        donorName,
+        donorType,
+        foodName,
+        category,
+        quantityKg: Number(quantityKg),
+        portions: Number(portions),
 
-    setIsSubmitting(false);
-    setShowSuccessModal(true);
+        cookedAt: new Date(
+          Date.now() - 30 * 60 * 1000
+        ).toISOString(),
 
-    confetti({
-      particleCount: 80,
-      spread: 60,
-      origin: { y: 0.7 },
-    });
+        safeUntil: new Date(
+          Date.now() + 4 * 60 * 60 * 1000
+        ).toISOString(),
+
+        tempRequirement,
+
+        dietaryTags: [
+          'vegetarian',
+          'halal',
+        ],
+
+        location: {
+          lat: 19.043,
+          lng: 72.819,
+          address:
+            'BJ Road, Bandra Bandstand',
+          neighborhood,
+          city: 'Mumbai',
+        },
+
+        priority:
+          quantityKg > 50
+            ? 'critical'
+            : 'high',
+
+        confidenceScore: 98,
+
+        targetDestinationType,
+      });
+
+      setShowSuccessModal(true);
+
+      confetti({
+        particleCount: 80,
+        spread: 60,
+        origin: { y: 0.7 },
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div className="min-h-full bg-[#f4f7f1] text-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
+        <div className="mb-8 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 mb-4">
-              <HeartHandshake className="w-4 h-4" />
+
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+
+              <HeartHandshake className="h-4 w-4" />
+
               FOOD RESCUE NETWORK
+
             </div>
 
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Give surplus food a second destination.
             </h1>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base leading-7 text-slate-500">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base">
               Tell us what food is available, where it is located,
               and how much you have. RasoiGrid helps coordinate the
               next recovery pathway.
             </p>
+
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-emerald-600" />
+          {/* Real logged-in donor */}
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+              <Building2 className="h-5 w-5 text-emerald-600" />
             </div>
 
             <div>
+
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 Donor account
               </p>
+
               <p className="text-sm font-semibold text-slate-800">
-                {donorName}
+                {user?.name || donorName || 'Donor'}
               </p>
+
             </div>
+
           </div>
+
         </div>
 
-        {/* Three principles */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl border border-emerald-100 p-5 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-4">
-              <Utensils className="w-5 h-5 text-emerald-600" />
+        {/* =====================================================
+            THREE PRINCIPLES
+        ===================================================== */}
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+
+          <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+              <Utensils className="h-5 w-5 text-emerald-600" />
             </div>
 
             <h3 className="font-semibold text-slate-900">
               Share edible surplus
             </h3>
 
-            <p className="text-xs leading-5 text-slate-500 mt-1">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               Make suitable surplus visible before it becomes waste.
             </p>
+
           </div>
 
-          <div className="bg-white rounded-2xl border border-amber-100 p-5 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mb-4">
-              <HeartHandshake className="w-5 h-5 text-amber-600" />
+          <div className="rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
+
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+              <HeartHandshake className="h-5 w-5 text-amber-600" />
             </div>
 
             <h3 className="font-semibold text-slate-900">
               People first
             </h3>
 
-            <p className="text-xs leading-5 text-slate-500 mt-1">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               Eligible food can be coordinated with verified community
               receivers.
             </p>
+
           </div>
 
-          <div className="bg-white rounded-2xl border border-lime-100 p-5 shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-lime-50 flex items-center justify-center mb-4">
-              <Recycle className="w-5 h-5 text-lime-700" />
+          <div className="rounded-2xl border border-lime-100 bg-white p-5 shadow-sm">
+
+            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-lime-50">
+              <Recycle className="h-5 w-5 text-lime-700" />
             </div>
 
             <h3 className="font-semibold text-slate-900">
               Recovery when needed
             </h3>
 
-            <p className="text-xs leading-5 text-slate-500 mt-1">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               Unavoidable organic material can move toward circular
               recovery.
             </p>
+
           </div>
+
         </div>
 
-        {/* Main content */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        {/* =====================================================
+            MAIN CONTENT
+        ===================================================== */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
 
-          {/* Main form */}
+          {/* ===================================================
+              MAIN FORM
+          =================================================== */}
           <div className="xl:col-span-8">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
               {/* Form header */}
-              <div className="px-6 sm:px-8 py-6 border-b border-slate-100">
+              <div className="border-b border-slate-100 px-6 py-6 sm:px-8">
+
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
-                    <PackageCheck className="w-5 h-5 text-emerald-600" />
+
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50">
+                    <PackageCheck className="h-5 w-5 text-emerald-600" />
                   </div>
 
                   <div>
+
                     <h2 className="text-xl font-bold text-slate-900">
                       Log food surplus
                     </h2>
 
-                    <p className="text-sm text-slate-500 mt-0.5">
+                    <p className="mt-0.5 text-sm text-slate-500">
                       A few details help us prepare the right recovery path.
                     </p>
+
                   </div>
+
                 </div>
+
               </div>
 
               <div className="p-6 sm:p-8">
 
-                {/* Presets */}
+                {/* =================================================
+                    PRESETS
+                ================================================= */}
                 <div className="mb-8">
-                  <div className="flex items-center justify-between mb-3">
+
+                  <div className="mb-3 flex items-center justify-between">
+
                     <div>
+
                       <p className="text-sm font-semibold text-slate-800">
                         Quick examples
                       </p>
+
                       <p className="text-xs text-slate-400">
                         Start with a common surplus type.
                       </p>
+
                     </div>
 
-                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
+
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
 
                     <button
                       type="button"
@@ -248,15 +352,17 @@ export const DonorPortalPage: React.FC = () => {
                           dest: 'shelter',
                         })
                       }
-                      className="text-left p-4 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
                     >
-                      <div className="text-2xl mb-2">🍛</div>
+                      <div className="mb-2 text-2xl">
+                        🍛
+                      </div>
 
                       <p className="text-sm font-semibold text-slate-800">
                         Dinner surplus
                       </p>
 
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         60 kg · 160 portions · Hot
                       </p>
                     </button>
@@ -273,15 +379,17 @@ export const DonorPortalPage: React.FC = () => {
                           dest: 'community_kitchen',
                         })
                       }
-                      className="text-left p-4 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 transition"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
                     >
-                      <div className="text-2xl mb-2">🥐</div>
+                      <div className="mb-2 text-2xl">
+                        🥐
+                      </div>
 
                       <p className="text-sm font-semibold text-slate-800">
                         Bakery surplus
                       </p>
 
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         25 kg · 80 portions · Ambient
                       </p>
                     </button>
@@ -298,22 +406,28 @@ export const DonorPortalPage: React.FC = () => {
                           dest: 'biogas_plant',
                         })
                       }
-                      className="text-left p-4 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-lime-50 hover:border-lime-200 transition"
+                      className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-lime-200 hover:bg-lime-50"
                     >
-                      <div className="text-2xl mb-2">🥬</div>
+                      <div className="mb-2 text-2xl">
+                        🥬
+                      </div>
 
                       <p className="text-sm font-semibold text-slate-800">
                         Kitchen scraps
                       </p>
 
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         180 kg · Organic recovery
                       </p>
                     </button>
 
                   </div>
+
                 </div>
 
+                {/* =================================================
+                    SURPLUS FORM
+                ================================================= */}
                 <form
                   onSubmit={handleSubmit}
                   className="space-y-6"
@@ -321,17 +435,22 @@ export const DonorPortalPage: React.FC = () => {
 
                   {/* Donor details */}
                   <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Building2 className="w-4 h-4 text-emerald-600" />
+
+                    <div className="mb-4 flex items-center gap-2">
+
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+
                       <h3 className="text-sm font-semibold text-slate-800">
                         Where is the surplus coming from?
                       </h3>
+
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Establishment name
                         </label>
 
@@ -342,12 +461,14 @@ export const DonorPortalPage: React.FC = () => {
                             setDonorName(e.target.value)
                           }
                           required
-                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         />
+
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Establishment type
                         </label>
 
@@ -356,33 +477,42 @@ export const DonorPortalPage: React.FC = () => {
                           onChange={(e) =>
                             setDonorType(e.target.value)
                           }
-                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         >
+
                           <option value="hotel_buffet">
                             Hotel / Buffet
                           </option>
+
                           <option value="corporate_cafeteria">
                             Corporate Cafeteria
                           </option>
+
                           <option value="restaurant">
                             Restaurant / Cloud Kitchen
                           </option>
+
                           <option value="supermarket">
                             Supermarket / Retail
                           </option>
+
                           <option value="event_caterer">
                             Event / Wedding Caterer
                           </option>
+
                         </select>
+
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Neighborhood
                         </label>
 
                         <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+
+                          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
 
                           <input
                             type="text"
@@ -391,27 +521,35 @@ export const DonorPortalPage: React.FC = () => {
                               setNeighborhood(e.target.value)
                             }
                             required
-                            className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                           />
+
                         </div>
+
                       </div>
 
                     </div>
+
                   </div>
 
                   {/* Food details */}
                   <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Utensils className="w-4 h-4 text-emerald-600" />
+
+                    <div className="mb-4 flex items-center gap-2">
+
+                      <Utensils className="h-4 w-4 text-emerald-600" />
+
                       <h3 className="text-sm font-semibold text-slate-800">
                         Tell us about the food
                       </h3>
+
                     </div>
 
                     <div className="space-y-4">
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Food description
                         </label>
 
@@ -423,14 +561,16 @@ export const DonorPortalPage: React.FC = () => {
                             setFoodName(e.target.value)
                           }
                           required
-                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         />
+
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                          <label className="mb-2 block text-xs font-medium text-slate-500">
                             Food category
                           </label>
 
@@ -441,31 +581,40 @@ export const DonorPortalPage: React.FC = () => {
                                 e.target.value as FoodCategory
                               )
                             }
-                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                           >
+
                             <option value="cooked_meals">
                               Cooked meals
                             </option>
+
                             <option value="bakery_grains">
                               Bakery & grains
                             </option>
+
                             <option value="fresh_produce">
                               Fresh produce
                             </option>
+
                             <option value="dairy_cold">
                               Dairy & cold foods
                             </option>
+
                             <option value="packaged_dry">
                               Packaged dry goods
                             </option>
+
                             <option value="non_edible_organic">
                               Organic scraps
                             </option>
+
                           </select>
+
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                          <label className="mb-2 block text-xs font-medium text-slate-500">
                             Quantity (kg)
                           </label>
 
@@ -473,21 +622,25 @@ export const DonorPortalPage: React.FC = () => {
                             type="number"
                             value={quantityKg}
                             onChange={(e) => {
-                              const kg = Number(e.target.value);
+                              const kg =
+                                Number(e.target.value);
 
                               setQuantityKg(kg);
+
                               setPortions(
                                 Math.round(kg * 2.8)
                               );
                             }}
                             min="1"
                             required
-                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                           />
+
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                          <label className="mb-2 block text-xs font-medium text-slate-500">
                             Estimated portions
                           </label>
 
@@ -501,27 +654,35 @@ export const DonorPortalPage: React.FC = () => {
                             }
                             min="0"
                             required
-                            className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                           />
+
                         </div>
 
                       </div>
+
                     </div>
+
                   </div>
 
                   {/* Handling */}
                   <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Clock3 className="w-4 h-4 text-emerald-600" />
+
+                    <div className="mb-4 flex items-center gap-2">
+
+                      <Clock3 className="h-4 w-4 text-emerald-600" />
+
                       <h3 className="text-sm font-semibold text-slate-800">
                         Handling & recovery
                       </h3>
+
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Current temperature condition
                         </label>
 
@@ -535,22 +696,28 @@ export const DonorPortalPage: React.FC = () => {
                                 | 'chilled_below_4c'
                             )
                           }
-                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         >
+
                           <option value="hot_above_60c">
                             Hot insulated (&gt;60°C)
                           </option>
+
                           <option value="ambient">
                             Ambient
                           </option>
+
                           <option value="chilled_below_4c">
                             Chilled (&lt;4°C)
                           </option>
+
                         </select>
+
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-2">
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
                           Preferred recovery destination
                         </label>
 
@@ -561,83 +728,108 @@ export const DonorPortalPage: React.FC = () => {
                               e.target.value as RecoveryDestinationType
                             )
                           }
-                          className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         >
+
                           <option value="shelter">
                             Community shelter
                           </option>
+
                           <option value="community_kitchen">
                             Community kitchen / food bank
                           </option>
+
                           <option value="animal_sanctuary">
                             Animal recovery
                           </option>
+
                           <option value="biogas_plant">
                             Biogas facility
                           </option>
+
                           <option value="compost_facility">
                             Compost facility
                           </option>
+
                         </select>
+
                       </div>
 
                     </div>
+
                   </div>
 
                   {/* Safety note */}
-                  <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 flex gap-3">
-                    <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+
+                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
 
                     <div>
+
                       <p className="text-sm font-semibold text-amber-900">
                         Food handling note
                       </p>
 
-                      <p className="text-xs leading-5 text-amber-800/80 mt-1">
+                      <p className="mt-1 text-xs leading-5 text-amber-800/80">
                         This information supports coordination and
                         prioritization. Final food-safety decisions remain
                         with authorized personnel and receiving organizations.
                       </p>
+
                     </div>
+
                   </div>
 
                   {/* Submit */}
                   <button
                     type="submit"
                     disabled={
-                      isSubmitting || !foodName.trim()
+                      isSubmitting ||
+                      !foodName.trim()
                     }
-                    className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 px-5 font-semibold text-sm transition flex items-center justify-center gap-2 shadow-sm"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
+
                     {isSubmitting ? (
                       <>
-                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+
                         Logging surplus...
                       </>
                     ) : (
                       <>
                         Log surplus & find recovery
-                        <ArrowRight className="w-4 h-4" />
+
+                        <ArrowRight className="h-4 w-4" />
                       </>
                     )}
+
                   </button>
 
                 </form>
+
               </div>
+
             </div>
+
           </div>
 
-          {/* Right column */}
-          <div className="xl:col-span-4 space-y-6">
+          {/* ===================================================
+              RIGHT COLUMN
+          =================================================== */}
+          <div className="space-y-6 xl:col-span-4">
 
             {/* Impact */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                  <Leaf className="w-5 h-5 text-emerald-600" />
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+              <div className="mb-5 flex items-center gap-3">
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+                  <Leaf className="h-5 w-5 text-emerald-600" />
                 </div>
 
                 <div>
+
                   <h3 className="font-bold text-slate-900">
                     Estimated impact
                   </h3>
@@ -645,170 +837,220 @@ export const DonorPortalPage: React.FC = () => {
                   <p className="text-xs text-slate-400">
                     Based on this entry
                   </p>
+
                 </div>
+
               </div>
 
               <div className="space-y-3">
 
                 <div className="rounded-2xl bg-emerald-50 p-4">
+
                   <p className="text-xs text-emerald-700">
                     Organic waste avoided
                   </p>
 
-                  <p className="text-2xl font-bold text-emerald-800 mt-1">
+                  <p className="mt-1 text-2xl font-bold text-emerald-800">
                     {quantityKg.toLocaleString()} kg
                   </p>
+
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
 
-                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+
                     <p className="text-xs text-slate-400">
                       Portions
                     </p>
 
-                    <p className="text-xl font-bold text-slate-800 mt-1">
+                    <p className="mt-1 text-xl font-bold text-slate-800">
                       {portions.toLocaleString()}
                     </p>
+
                   </div>
 
-                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+
                     <p className="text-xs text-slate-400">
                       Estimated CH₄
                     </p>
 
-                    <p className="text-xl font-bold text-slate-800 mt-1">
+                    <p className="mt-1 text-xl font-bold text-slate-800">
                       {(quantityKg * 1.8).toFixed(1)}
                     </p>
 
                     <p className="text-[10px] text-slate-400">
                       kg planning estimate
                     </p>
+
                   </div>
 
                 </div>
 
-                <div className="rounded-2xl bg-sky-50 border border-sky-100 p-4">
+                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+
                   <p className="text-xs text-sky-700">
                     Estimated water footprint represented
                   </p>
 
-                  <p className="text-xl font-bold text-sky-800 mt-1">
+                  <p className="mt-1 text-xl font-bold text-sky-800">
                     {(quantityKg * 100).toLocaleString()} L
                   </p>
+
                 </div>
 
               </div>
 
-              <p className="text-[11px] text-slate-400 leading-5 mt-4">
+              <p className="mt-4 text-[11px] leading-5 text-slate-400">
                 These are planning estimates shown to help understand
                 potential environmental impact. They are not measured
                 outcomes.
               </p>
+
             </div>
 
-            {/* Today's batches */}
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+            {/* Recent surplus */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
-              <div className="flex items-center justify-between mb-5">
+              <div className="mb-5 flex items-center justify-between">
+
                 <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-600" />
+
+                  <FileText className="h-4 w-4 text-emerald-600" />
 
                   <h3 className="font-bold text-slate-900">
                     Recent surplus
                   </h3>
+
                 </div>
 
                 <span className="text-xs text-slate-400">
                   Today
                 </span>
+
               </div>
 
               <div className="space-y-3">
 
-                {surplusList.slice(0, 3).map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-semibold text-emerald-700">
-                        {item.id}
-                      </span>
+                {surplusList
+                  .slice(0, 3)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                    >
 
-                      <span className="text-xs font-semibold text-slate-500">
-                        {item.quantityKg} kg
-                      </span>
+                      <div className="flex items-center justify-between gap-3">
+
+                        <span className="text-xs font-semibold text-emerald-700">
+                          {item.id}
+                        </span>
+
+                        <span className="text-xs font-semibold text-slate-500">
+                          {item.quantityKg} kg
+                        </span>
+
+                      </div>
+
+                      <p className="mt-2 truncate text-sm font-medium text-slate-800">
+                        {item.foodName}
+                      </p>
+
+                      <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-400">
+
+                        <MapPin className="h-3 w-3" />
+
+                        {item.location.neighborhood}
+
+                      </div>
+
                     </div>
-
-                    <p className="text-sm font-medium text-slate-800 mt-2 truncate">
-                      {item.foodName}
-                    </p>
-
-                    <div className="flex items-center gap-1 mt-2 text-[11px] text-slate-400">
-                      <MapPin className="w-3 h-3" />
-                      {item.location.neighborhood}
-                    </div>
-                  </div>
-                ))}
+                  ))}
 
               </div>
+
             </div>
 
             {/* Principle */}
             <div className="rounded-3xl bg-emerald-900 p-6 text-white">
-              <HeartHandshake className="w-7 h-7 text-emerald-300 mb-4" />
+
+              <HeartHandshake className="mb-4 h-7 w-7 text-emerald-300" />
 
               <h3 className="text-lg font-bold">
                 People first.
               </h3>
 
-              <p className="text-sm text-emerald-100/80 leading-6 mt-2">
+              <p className="mt-2 text-sm leading-6 text-emerald-100/80">
                 When surplus is suitable for people, the system
                 prioritizes verified community recovery before
                 circular disposal pathways.
               </p>
 
-              <div className="flex items-center gap-2 mt-5 text-xs font-medium text-emerald-200">
-                <span>People first</span>
+              <div className="mt-5 flex items-center gap-2 text-xs font-medium text-emerald-200">
+
+                <span>
+                  People first
+                </span>
+
                 <span>•</span>
-                <span>Circular recovery</span>
+
+                <span>
+                  Circular recovery
+                </span>
+
                 <span>•</span>
-                <span>Landfill last</span>
+
+                <span>
+                  Landfill last
+                </span>
+
               </div>
+
             </div>
 
           </div>
+
         </div>
+
       </div>
 
-      {/* Success modal */}
+      {/* =======================================================
+          SUCCESS MODAL
+      ======================================================= */}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
 
-          <div className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-7 text-center">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-2xl">
 
-            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+
+              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+
             </div>
 
             <h3 className="text-2xl font-bold text-slate-900">
               Surplus logged successfully
             </h3>
 
-            <p className="text-sm leading-6 text-slate-500 mt-3">
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               Your surplus has been added to the current rescue
               workflow. Matching and routing can now use the details
               you provided.
             </p>
 
             <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-left">
+
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center">
-                  <PackageCheck className="w-4 h-4 text-emerald-600" />
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white">
+
+                  <PackageCheck className="h-4 w-4 text-emerald-600" />
+
                 </div>
 
                 <div>
+
                   <p className="text-xs text-emerald-700">
                     Surplus recorded
                   </p>
@@ -816,8 +1058,11 @@ export const DonorPortalPage: React.FC = () => {
                   <p className="text-sm font-semibold text-emerald-900">
                     {quantityKg} kg · {portions} portions
                   </p>
+
                 </div>
+
               </div>
+
             </div>
 
             <button
@@ -825,15 +1070,20 @@ export const DonorPortalPage: React.FC = () => {
                 setShowSuccessModal(false);
                 setFoodName('');
               }}
-              className="w-full mt-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm transition flex items-center justify-center gap-2"
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
             >
+
               Log another surplus
-              <ArrowRight className="w-4 h-4" />
+
+              <ArrowRight className="h-4 w-4" />
+
             </button>
 
           </div>
+
         </div>
       )}
+
     </div>
   );
 };

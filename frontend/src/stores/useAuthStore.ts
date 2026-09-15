@@ -3,7 +3,11 @@ import { create } from 'zustand';
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-export type UserRole = 'DONOR' | 'NGO' | 'VOLUNTEER' | 'ADMIN';
+export type UserRole =
+  | 'DONOR'
+  | 'NGO'
+  | 'VOLUNTEER'
+  | 'ADMIN';
 
 interface User {
   id: number;
@@ -34,13 +38,41 @@ interface AuthState {
   logout: () => void;
 }
 
-const storedToken = localStorage.getItem('rasoigrid_token');
-const storedUser = localStorage.getItem('rasoigrid_user');
+/* ---------------------------------------
+   Restore saved authentication
+---------------------------------------- */
+
+const storedToken =
+  localStorage.getItem('rasoigrid_token');
+
+const storedUser =
+  localStorage.getItem('rasoigrid_user');
+
+let initialUser: User | null = null;
+
+try {
+  initialUser = storedUser
+    ? JSON.parse(storedUser)
+    : null;
+} catch {
+  localStorage.removeItem('rasoigrid_user');
+  initialUser = null;
+}
+
+/* ---------------------------------------
+   Auth Store
+---------------------------------------- */
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: storedToken,
-  user: storedUser ? JSON.parse(storedUser) : null,
-  isAuthenticated: Boolean(storedToken),
+  user: initialUser,
+  isAuthenticated: Boolean(
+    storedToken && initialUser
+  ),
+
+  /* ---------------------------------------
+     LOGIN
+  ---------------------------------------- */
 
   login: async (email, password) => {
     const response = await fetch(
@@ -67,38 +99,77 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const token = data.access_token;
 
-    const payload = JSON.parse(
-      atob(token.split('.')[1])
-    );
-
-    const userResponse = await fetch(
-      `${API_BASE_URL}/api/ngos/my`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    let user: User;
-
-    if (payload.role === 'NGO' && userResponse.ok) {
-      user = {
-        id: Number(payload.sub),
-        name: '',
-        email,
-        phone: '',
-        role: payload.role,
-      };
-    } else {
-      user = {
-        id: Number(payload.sub),
-        name: '',
-        email,
-        phone: '',
-        role: payload.role,
-      };
+    if (!token) {
+      throw new Error(
+        'Login succeeded but no access token was returned'
+      );
     }
+
+    /* ---------------------------------------
+       Read JWT payload
+    ---------------------------------------- */
+
+    let payload: {
+      sub?: string;
+      role?: UserRole;
+      exp?: number;
+    };
+
+    try {
+      payload = JSON.parse(
+        atob(token.split('.')[1])
+      );
+    } catch {
+      throw new Error(
+        'Invalid authentication token'
+      );
+    }
+
+    /* ---------------------------------------
+       Validate user ID
+    ---------------------------------------- */
+
+    if (!payload.sub) {
+      throw new Error(
+        'Authentication token does not contain a user ID'
+      );
+    }
+
+    /* ---------------------------------------
+       Validate role
+    ---------------------------------------- */
+
+    const allowedRoles: UserRole[] = [
+      'DONOR',
+      'NGO',
+      'VOLUNTEER',
+      'ADMIN',
+    ];
+
+    if (
+      !payload.role ||
+      !allowedRoles.includes(payload.role)
+    ) {
+      throw new Error(
+        'Authentication token contains an invalid user role'
+      );
+    }
+
+    /* ---------------------------------------
+       Create authenticated user
+    ---------------------------------------- */
+
+    const user: User = {
+      id: Number(payload.sub),
+      name: '',
+      email,
+      phone: '',
+      role: payload.role,
+    };
+
+    /* ---------------------------------------
+       Persist authentication
+    ---------------------------------------- */
 
     localStorage.setItem(
       'rasoigrid_token',
@@ -110,12 +181,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       JSON.stringify(user)
     );
 
+    /* ---------------------------------------
+       Update Zustand state
+    ---------------------------------------- */
+
     set({
       token,
       user,
       isAuthenticated: true,
     });
   },
+
+  /* ---------------------------------------
+     REGISTER
+  ---------------------------------------- */
 
   register: async (
     name,
@@ -149,6 +228,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       );
     }
   },
+
+  /* ---------------------------------------
+     LOGOUT
+  ---------------------------------------- */
 
   logout: () => {
     localStorage.removeItem(
