@@ -327,3 +327,38 @@ def test_donor_cannot_view_volunteer_profile():
 
     finally:
         app.dependency_overrides.clear()
+
+def test_donor_cannot_view_available_donations():
+    """
+    A DONOR must not be allowed to view the global
+    list of available donations.
+    """
+
+    from app.dependencies.auth import get_current_user
+    from app.models.user import User
+
+    fake_donor_user = User(
+        id=993,
+        name="Test Donor Donation List",
+        email="donor-donation-list-test@rasoigrid.com",
+        phone="9999999993",
+        password_hash="test-password",
+        role="DONOR"
+    )
+
+    app.dependency_overrides[get_current_user] = (
+        lambda: fake_donor_user
+    )
+
+    try:
+        response = client.get(
+            "/api/donations/"
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == (
+            "Only NGO users can view available donations"
+        )
+
+    finally:
+        app.dependency_overrides.clear()

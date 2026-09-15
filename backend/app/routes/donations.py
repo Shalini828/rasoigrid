@@ -61,6 +61,12 @@ def get_donations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can view available donations"
+        )
+
     donations = (
         db.query(Donation)
         .filter(Donation.status == "AVAILABLE")
