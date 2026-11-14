@@ -79,6 +79,17 @@ export const ForecastPage: React.FC = () => {
   return (
     <div className="min-h-full bg-[#f5f8f6] text-[#102a43]">
       <div className="mx-auto max-w-[1500px] space-y-5">
+        <div
+          role="note"
+          className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <strong>Sample data.</strong> Forecasts need several weeks of real
+            donation history, so this page is a preview and is not connected to
+            the backend yet. Live priority scores are on the Command page.
+          </p>
+        </div>
 
         {/* =========================================================
             PAGE HEADER

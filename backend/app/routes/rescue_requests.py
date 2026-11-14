@@ -12,6 +12,7 @@ from app.schemas.rescue_request import (
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.services.audit import create_audit_event
+from app.services.expiry import expire_stale_donations
 
 
 router = APIRouter(
@@ -40,9 +41,9 @@ def create_rescue_request(
             detail="Only NGO users can create rescue requests"
         )
 
-    # 1. Check that donation exists
-    
-    # 1. Check that donation exists
+    # 1. Check that donation exists (expiring it first if it is too late)
+    expire_stale_donations(db)
+
     donation = (
         db.query(Donation)
         .filter(Donation.id == request.donation_id)
@@ -56,6 +57,12 @@ def create_rescue_request(
         )
 
     # 2. Donation must still be available
+    if donation.status == "EXPIRED":
+        raise HTTPException(
+            status_code=400,
+            detail="Donation has expired"
+        )
+
     if donation.status != "AVAILABLE":
         raise HTTPException(
             status_code=400,

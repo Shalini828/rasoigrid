@@ -46,6 +46,16 @@ export const StatusPill: React.FC<StatusPillProps> = ({
         colorClasses = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
         dotColor = 'bg-amber-400';
         break;
+      case 'expired':
+        label = 'Expired';
+        colorClasses = 'bg-slate-800 text-slate-400 border-slate-700';
+        dotColor = 'bg-slate-500';
+        break;
+      case 'cancelled':
+        label = 'Cancelled';
+        colorClasses = 'bg-slate-800 text-slate-400 border-slate-700';
+        dotColor = 'bg-slate-500';
+        break;
       case 'predicted':
         label = 'AI Forecasted';
         colorClasses = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
@@ -57,7 +67,7 @@ export const StatusPill: React.FC<StatusPillProps> = ({
   } else if (priority) {
     switch (priority) {
       case 'critical':
-        label = 'Critical (<2h)';
+        label = 'Critical';
         colorClasses = 'bg-rose-500/15 text-rose-300 border-rose-500/40';
         dotColor = 'bg-rose-400';
         break;

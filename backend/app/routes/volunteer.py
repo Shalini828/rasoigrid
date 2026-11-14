@@ -7,7 +7,7 @@ from app.models.user import User
 from app.models.donation import Donation
 from app.schemas.volunteer import VolunteerCreate, VolunteerResponse
 from app.dependencies.auth import get_current_user
-from app.services.matching import calculate_distance
+from app.services.volunteer import rank_volunteers
 
 
 router = APIRouter(
@@ -255,8 +255,8 @@ def get_available_volunteers(
     """
     List available volunteers for an NGO to assign.
 
-    When donation_id is given, the nearest volunteers to that
-    donation come first.
+    When donation_id is given, the best-matched volunteers for that
+    pickup come first.
     """
     if current_user.role != "NGO":
         raise HTTPException(
@@ -278,24 +278,34 @@ def get_available_volunteers(
             .first()
         )
 
-    def distance(volunteer):
-        if (
-            donation is None
-            or donation.latitude is None
-            or donation.longitude is None
-            or volunteer.latitude is None
-            or volunteer.longitude is None
-        ):
-            return float("inf")
+    if (
+        donation is None
+        or donation.latitude is None
+        or donation.longitude is None
+    ):
+        return volunteers
 
-        return calculate_distance(
-            donation.latitude,
-            donation.longitude,
-            volunteer.latitude,
-            volunteer.longitude
+    # Rank with the volunteer matching engine (distance and vehicle).
+    # Ties go to the nearer volunteer; volunteers without a location go last.
+    ranked = rank_volunteers(
+        pickup_latitude=donation.latitude,
+        pickup_longitude=donation.longitude,
+        volunteers=volunteers
+    )
+    matches = {m["volunteer_id"]: m for m in ranked}
+
+    for volunteer in volunteers:
+        match = matches.get(volunteer.id)
+        volunteer.distance_km = match["distance_km"] if match else None
+        volunteer.match_score = match["match_score"] if match else None
+
+    volunteers.sort(
+        key=lambda v: (
+            v.match_score is None,
+            -(v.match_score or 0),
+            v.distance_km if v.distance_km is not None else float("inf")
         )
-
-    volunteers.sort(key=distance)
+    )
 
     return volunteers
 

@@ -744,7 +744,11 @@ export const DispatchCommandPage: React.FC = () => {
 
                     <div className="mt-2 flex items-center gap-2 text-sm font-bold text-emerald-700">
                       <HeartHandshake className="h-4 w-4" />
-                      People First
+                      {selectedSurplus.recoveryPath === "CIRCULAR_RECOVERY"
+                        ? "Circular recovery"
+                        : selectedSurplus.recoveryPath === "LANDFILL_LAST"
+                          ? "Recovery first, landfill last"
+                          : "People First"}
                     </div>
 
                     <div className="mt-1 text-xs text-slate-500">
@@ -775,14 +779,13 @@ export const DispatchCommandPage: React.FC = () => {
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500">
-                        Surplus risk
+                        Priority score
                       </div>
 
                       <div className="mt-1 text-lg font-bold text-indigo-800">
-                        {selectedSurplus.priority === "critical" ||
-                        selectedSurplus.priority === "high"
-                          ? "HIGH"
-                          : "MEDIUM"}
+                        {selectedSurplus.priorityScore !== null
+                          ? `${selectedSurplus.priorityScore} / 100`
+                          : "—"}
                       </div>
                     </div>
 
@@ -801,8 +804,8 @@ export const DispatchCommandPage: React.FC = () => {
                         Recommended action
                       </div>
 
-                      <div className="mt-1 text-sm font-bold text-[#102a43]">
-                        Coordinate recovery
+                      <div className="mt-1 text-xs font-semibold leading-5 text-[#102a43]">
+                        {selectedSurplus.recommendedAction ?? "Coordinate recovery"}
                       </div>
                     </div>
                   </div>
@@ -811,9 +814,9 @@ export const DispatchCommandPage: React.FC = () => {
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
 
                     <p className="text-xs leading-5 text-slate-600">
-                      AI supports forecasting, prioritization and operational
-                      recommendations. It does not independently certify food
-                      safety. Final food-safety decisions remain with authorized
+                      Scores come from RasoiGrid's rules for quantity, time left,
+                      distance and NGO capacity. They help decide what to pick up
+                      first and do not certify food safety. Final food-safety decisions remain with authorized
                       personnel and receiving organizations.
                     </p>
                   </div>

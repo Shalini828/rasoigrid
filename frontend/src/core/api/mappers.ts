@@ -56,6 +56,7 @@ const DONATION_STATUS: Record<string, RescueStatus> = {
   IN_TRANSIT: "in_transit",
   DELIVERED: "delivered_human",
   CANCELLED: "cancelled",
+  EXPIRED: "expired",
 };
 
 const DISPATCH_STATUS: Record<string, RescueStatus> = {
@@ -74,7 +75,15 @@ const DISPATCH_STATUS: Record<string, RescueStatus> = {
 export const parseApiDate = (value: string): Date =>
   new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value}Z`);
 
+const API_PRIORITY: Record<string, PriorityLevel> = {
+  CRITICAL: "critical",
+  HIGH: "high",
+  MEDIUM: "medium",
+  LOW: "standard",
+};
+
 /**
+ * Fallback when the backend sends no score (e.g. older data).
  * Same thresholds as backend/app/services/config.py
  * (2 h critical, 6 h high, 12 h medium).
  */
@@ -145,7 +154,12 @@ export const toSurplusItem = (d: DonationDTO): FoodSurplusItem => {
     location: toLocation(d.latitude, d.longitude),
     status: DONATION_STATUS[d.status] ?? "available",
     backendStatus: d.status,
-    priority: priorityFromHours(hoursLeft),
+    priority:
+      (d.priority && API_PRIORITY[d.priority]) || priorityFromHours(hoursLeft),
+    priorityScore: d.priority_score ?? null,
+    recoveryPath: d.recovery_path ?? null,
+    recommendedAction: d.recommended_action ?? null,
+    distanceToNgoKm: d.distance_to_ngo_km ?? null,
     createdAt: d.created_at ? parseApiDate(d.created_at).toISOString() : null,
   };
 };

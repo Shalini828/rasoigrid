@@ -49,3 +49,45 @@ class Donation(Base):
     def donor_name(self):
         return self.donor.name if self.donor else None
 
+
+    # --- Rescue decision (computed, not stored) -----------------------
+    # Scores depend on the current time, so they are worked out on read.
+    # Routes may call score_for(ngo) first to include an NGO's distance.
+
+    def score_for(self, ngo=None):
+        from app.services.donation_scoring import score_donation
+
+        self.__dict__["_rescue_decision"] = score_donation(self, ngo)
+        return self.__dict__["_rescue_decision"]
+
+    def _decision(self):
+        cached = self.__dict__.get("_rescue_decision")
+        return cached if cached is not None else self.score_for()
+
+    @property
+    def priority(self):
+        return self._decision()["priority"]
+
+    @property
+    def priority_score(self):
+        return self._decision()["priority_score"]
+
+    @property
+    def urgency(self):
+        return self._decision()["urgency"]
+
+    @property
+    def hours_remaining(self):
+        return self._decision()["hours_remaining"]
+
+    @property
+    def recovery_path(self):
+        return self._decision()["recovery_path"]
+
+    @property
+    def recommended_action(self):
+        return self._decision()["recommended_action"]
+
+    @property
+    def distance_to_ngo_km(self):
+        return self._decision()["distance_to_ngo_km"]
