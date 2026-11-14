@@ -35,3 +35,29 @@ class Dispatch(Base):
 
     rescue_request = relationship("RescueRequest")
     volunteer = relationship("VolunteerProfile")
+
+    @property
+    def donation(self):
+        """The donation this dispatch is moving, via its rescue request."""
+        return self.rescue_request.donation if self.rescue_request else None
+
+    @property
+    def volunteer_name(self):
+        return self.volunteer.name if self.volunteer else None
+
+    @property
+    def volunteer_phone(self):
+        return self.volunteer.phone if self.volunteer else None
+
+    @property
+    def ngo_name(self):
+        if self.rescue_request and self.rescue_request.ngo:
+            return self.rescue_request.ngo.organization_name
+        return None
+
+    @property
+    def ngo_address(self):
+        if self.rescue_request and self.rescue_request.ngo:
+            return self.rescue_request.ngo.address
+        return None
+

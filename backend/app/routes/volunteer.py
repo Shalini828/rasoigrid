@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.donation import Donation
 from app.schemas.volunteer import VolunteerCreate, VolunteerResponse
 from app.dependencies.auth import get_current_user
+from app.services.matching import calculate_distance
 
 
 router = APIRouter(
@@ -243,3 +244,58 @@ def test_donor_cannot_view_volunteer_profile():
 
     finally:
         app.dependency_overrides.clear()
+
+
+@router.get("/available", response_model=list[VolunteerResponse])
+def get_available_volunteers(
+    donation_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List available volunteers for an NGO to assign.
+
+    When donation_id is given, the nearest volunteers to that
+    donation come first.
+    """
+    if current_user.role != "NGO":
+        raise HTTPException(
+            status_code=403,
+            detail="Only NGO users can view available volunteers"
+        )
+
+    volunteers = (
+        db.query(VolunteerProfile)
+        .filter(VolunteerProfile.availability_status == "AVAILABLE")
+        .all()
+    )
+
+    donation = None
+    if donation_id is not None:
+        donation = (
+            db.query(Donation)
+            .filter(Donation.id == donation_id)
+            .first()
+        )
+
+    def distance(volunteer):
+        if (
+            donation is None
+            or donation.latitude is None
+            or donation.longitude is None
+            or volunteer.latitude is None
+            or volunteer.longitude is None
+        ):
+            return float("inf")
+
+        return calculate_distance(
+            donation.latitude,
+            donation.longitude,
+            volunteer.latitude,
+            volunteer.longitude
+        )
+
+    volunteers.sort(key=distance)
+
+    return volunteers
+

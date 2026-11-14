@@ -11,6 +11,8 @@ class VolunteerResponse(VolunteerCreate):
     id: int
     user_id: int
     availability_status: str
+    name: str | None = None
+    phone: str | None = None
 
     class Config:
         from_attributes = True

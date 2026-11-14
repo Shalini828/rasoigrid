@@ -44,3 +44,8 @@ class Donation(Base):
 )
 
     donor = relationship("User")
+
+    @property
+    def donor_name(self):
+        return self.donor.name if self.donor else None
+

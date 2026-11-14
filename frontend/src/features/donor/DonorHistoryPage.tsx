@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useRescueStore } from "../../stores/useRescueStore";
+import type { FoodSurplusItem } from "../../core/types/models";
 import {
   ArrowLeft,
   ArrowRight,
@@ -16,10 +18,36 @@ import {
 } from "lucide-react";
 
 type DonationStatus =
-  | "Matched"
-  | "Collected"
-  | "Recovered"
-  | "Pending";
+  | "Waiting"
+  | "Claimed"
+  | "Picked up"
+  | "Delivered"
+  | "Cancelled";
+
+const STATUS_FROM_API: Record<string, DonationStatus> = {
+  AVAILABLE: "Waiting",
+  CLAIMED: "Claimed",
+  IN_TRANSIT: "Picked up",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+};
+
+const NEXT_STEP: Record<DonationStatus, string> = {
+  Waiting: "Visible to verified NGOs",
+  Claimed: "An NGO is arranging pickup",
+  "Picked up": "A volunteer is delivering it",
+  Delivered: "Delivered to the NGO",
+  Cancelled: "Withdrawn by you",
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  cooked_meals: "Cooked meals",
+  bakery_grains: "Bakery & grains",
+  fresh_produce: "Fresh produce",
+  dairy_cold: "Dairy & cold",
+  packaged_dry: "Packaged dry",
+  non_edible_organic: "Organic scraps",
+};
 
 type DonationRecord = {
   id: string;
@@ -34,68 +62,22 @@ type DonationRecord = {
   time: string;
 };
 
-const donationRecords: DonationRecord[] = [
-  {
-    id: "RG-1042",
-    food: "Cooked rice & vegetable curry",
-    category: "Prepared Food",
-    quantity: 18,
-    portions: 72,
-    destination: "Community meal network",
-    location: "Bandra West",
-    status: "Matched",
-    date: "15 Sep 2026",
-    time: "10:40 AM",
-  },
-  {
-    id: "RG-1038",
-    food: "Fresh bread & bakery items",
-    category: "Bakery",
-    quantity: 9,
-    portions: 36,
-    destination: "Local food rescue partner",
-    location: "Bandra West",
-    status: "Collected",
-    date: "14 Sep 2026",
-    time: "6:15 PM",
-  },
-  {
-    id: "RG-1031",
-    food: "Prepared lunch surplus",
-    category: "Prepared Food",
-    quantity: 24,
-    portions: 96,
-    destination: "Circular recovery",
-    location: "Bandra West",
-    status: "Recovered",
-    date: "12 Sep 2026",
-    time: "2:20 PM",
-  },
-  {
-    id: "RG-1026",
-    food: "Fresh vegetables",
-    category: "Produce",
-    quantity: 15,
-    portions: 60,
-    destination: "Community meal network",
-    location: "Bandra West",
-    status: "Recovered",
-    date: "10 Sep 2026",
-    time: "11:05 AM",
-  },
-  {
-    id: "RG-1019",
-    food: "Rice, dal & roti",
-    category: "Prepared Food",
-    quantity: 21,
-    portions: 84,
-    destination: "Community meal network",
-    location: "Bandra West",
-    status: "Pending",
-    date: "8 Sep 2026",
-    time: "8:30 PM",
-  },
-];
+const toRecord = (item: FoodSurplusItem): DonationRecord => {
+  const when = new Date(item.createdAt ?? item.cookedAt);
+  const status = STATUS_FROM_API[item.backendStatus] ?? "Waiting";
+  return {
+    id: item.id,
+    food: item.foodName,
+    category: CATEGORY_LABEL[item.category] ?? item.category,
+    quantity: item.quantityKg,
+    portions: item.portions,
+    destination: NEXT_STEP[status],
+    location: item.location?.neighborhood ?? "No location",
+    status,
+    date: when.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    time: when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+  };
+};
 
 const statusStyles: Record<
   DonationStatus,
@@ -104,25 +86,48 @@ const statusStyles: Record<
     icon: React.ReactNode;
   }
 > = {
-  Matched: {
+  Waiting: {
+    className: "bg-slate-100 text-slate-600",
+    icon: <Clock3 className="h-3.5 w-3.5" />,
+  },
+  Claimed: {
     className: "bg-amber-50 text-amber-700",
     icon: <Clock3 className="h-3.5 w-3.5" />,
   },
-  Collected: {
+  "Picked up": {
     className: "bg-blue-50 text-blue-700",
     icon: <PackageCheck className="h-3.5 w-3.5" />,
   },
-  Recovered: {
+  Delivered: {
     className: "bg-emerald-50 text-emerald-700",
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
   },
-  Pending: {
-    className: "bg-slate-100 text-slate-600",
+  Cancelled: {
+    className: "bg-red-50 text-red-600",
     icon: <Clock3 className="h-3.5 w-3.5" />,
   },
 };
 
 export const DonorHistoryPage: React.FC = () => {
+  const { surplusList, cancelSurplus, isLoading, error } = useRescueStore();
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+
+  const donationRecords = useMemo(() => surplusList.map(toRecord), [surplusList]);
+
+  const handleCancel = async (id: string) => {
+    if (!window.confirm("Withdraw this donation? NGOs will no longer see it.")) return;
+    setCancellingId(id);
+    setActionError("");
+    try {
+      await cancelSurplus(id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not cancel the donation.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "All" | DonationStatus
@@ -147,27 +152,29 @@ export const DonorHistoryPage: React.FC = () => {
 
       return matchesSearch && matchesStatus;
     });
-  }, [searchTerm, statusFilter]);
+  }, [donationRecords, searchTerm, statusFilter]);
 
-  const totalQuantity = donationRecords.reduce(
+  const counted = donationRecords.filter((r) => r.status !== "Cancelled");
+
+  const totalQuantity = counted.reduce(
     (sum, record) => sum + record.quantity,
     0
   );
 
-  const totalPortions = donationRecords.reduce(
+  const totalPortions = counted.reduce(
     (sum, record) => sum + record.portions,
     0
   );
 
   const recoveredCount = donationRecords.filter(
-    (record) => record.status === "Recovered"
+    (record) => record.status === "Delivered"
   ).length;
 
   const activeCount = donationRecords.filter(
     (record) =>
-      record.status === "Matched" ||
-      record.status === "Collected" ||
-      record.status === "Pending"
+      record.status === "Waiting" ||
+      record.status === "Claimed" ||
+      record.status === "Picked up"
   ).length;
 
   return (
@@ -376,10 +383,11 @@ export const DonorHistoryPage: React.FC = () => {
               {(
                 [
                   "All",
-                  "Matched",
-                  "Collected",
-                  "Recovered",
-                  "Pending",
+                  "Waiting",
+                  "Claimed",
+                  "Picked up",
+                  "Delivered",
+                  "Cancelled",
                 ] as const
               ).map((status) => (
                 <button
@@ -427,6 +435,12 @@ export const DonorHistoryPage: React.FC = () => {
           </div>
 
 
+          {(error || actionError) && (
+            <p role="alert" className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700">
+              {actionError || error}
+            </p>
+          )}
+
           {filteredRecords.length === 0 ? (
 
             <div className="px-6 py-16 text-center">
@@ -436,11 +450,13 @@ export const DonorHistoryPage: React.FC = () => {
               </div>
 
               <h3 className="mt-4 text-sm font-semibold text-slate-900">
-                No records found
+                {isLoading ? "Loading…" : donationRecords.length === 0 ? "No donations yet" : "No records found"}
               </h3>
 
               <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-slate-500">
-                Try changing your search or status filter.
+                {donationRecords.length === 0
+                  ? "Log your first surplus and it will appear here."
+                  : "Try changing your search or status filter."}
               </p>
 
             </div>
@@ -483,7 +499,7 @@ export const DonorHistoryPage: React.FC = () => {
                           </div>
 
                           <p className="mt-1 text-xs text-slate-400">
-                            {record.id} · {record.date} · {record.time}
+                            #{record.id} · {record.date} · {record.time}
                           </p>
 
                           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
@@ -493,7 +509,7 @@ export const DonorHistoryPage: React.FC = () => {
                             </span>
 
                             <span>
-                              {record.portions} portions
+                              About {record.portions} meals
                             </span>
 
                             <span className="flex items-center gap-1">
@@ -512,7 +528,7 @@ export const DonorHistoryPage: React.FC = () => {
                       <div className="min-w-0 xl:w-64">
 
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Recovery Destination
+                          Where it is
                         </p>
 
                         <p className="mt-1 text-sm font-medium text-slate-700">
@@ -523,7 +539,7 @@ export const DonorHistoryPage: React.FC = () => {
 
 
                       {/* STATUS */}
-                      <div className="flex items-center justify-between gap-4 xl:w-36 xl:justify-end">
+                      <div className="flex items-center justify-between gap-4 xl:w-56 xl:justify-end">
 
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${status.className}`}
@@ -532,7 +548,18 @@ export const DonorHistoryPage: React.FC = () => {
                           {record.status}
                         </span>
 
-                        <ArrowRight className="hidden h-4 w-4 text-slate-300 xl:block" />
+                        {record.status === "Waiting" ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCancel(record.id)}
+                            disabled={cancellingId === record.id}
+                            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-red-200 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {cancellingId === record.id ? "Cancelling…" : "Cancel"}
+                          </button>
+                        ) : (
+                          <ArrowRight className="hidden h-4 w-4 text-slate-300 xl:block" />
+                        )}
 
                       </div>
 

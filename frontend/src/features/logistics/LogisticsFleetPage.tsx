@@ -14,94 +14,83 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "../../components/ui/StatusPill";
+import { VolunteerProfileSetup } from "../../components/profile/ProfileSetup";
+import { api } from "../../core/api/client";
+import type { DispatchStatus } from "../../core/api/types";
+import type { RescueMission } from "../../core/types/models";
 import { useRescueStore } from "../../stores/useRescueStore";
 
-type MissionStage =
-  | "available"
-  | "accepted"
-  | "pickup"
-  | "transit"
-  | "handover"
-  | "completed";
+/** Where a dispatch sits in the volunteer's workflow (index into the steps). */
+const STEP_INDEX: Record<string, number> = {
+  PENDING: 0,
+  ASSIGNED: 0,
+  PICKED_UP: 2,
+  DELIVERED: 4,
+  CANCELLED: -1,
+};
+
+const mapsLink = (lat: number, lng: number) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
 export const LogisticsFleetPage: React.FC = () => {
-  const { missionsList, verifyMissionDelivery } = useRescueStore();
+  const {
+    missionsList,
+    updateMissionStatus,
+    volunteerProfile,
+    setVolunteerProfile,
+    hasLoaded,
+    error,
+  } = useRescueStore();
 
-  const [acceptedMissionId, setAcceptedMissionId] = useState<
-    number | string | null
-  >(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [togglingAvailability, setTogglingAvailability] = useState(false);
 
-  const [missionStages, setMissionStages] = useState<
-    Record<string, MissionStage>
-  >({});
-
-  const [otpInputs, setOtpInputs] = useState<
-    Record<string, string>
-  >({});
-
-  const getStage = (
-    missionId: number | string
-  ): MissionStage => {
-    return (
-      missionStages[String(missionId)] || "available"
-    );
-  };
-
-  const updateStage = (
-    missionId: number | string,
-    stage: MissionStage
-  ) => {
-    setMissionStages((current) => ({
-      ...current,
-      [String(missionId)]: stage,
-    }));
-  };
-
-  const handleAcceptMission = (
-    missionId: number | string
-  ) => {
-    setAcceptedMissionId(missionId);
-    updateStage(missionId, "accepted");
-  };
-
-  const handleVerifyHandover = (
-    missionId: number | string
-  ) => {
-    const mission = missionsList.find(
-      (item) => item.id === missionId
-    );
-
-    if (!mission) return;
-
-    const enteredOtp =
-      otpInputs[String(missionId)]?.trim();
-
-    if (!enteredOtp) {
-      alert("Please enter the receiver OTP.");
-      return;
-    }
-
-    if (enteredOtp !== String(mission.otpCode)) {
-      alert("Incorrect receiver OTP.");
-      return;
-    }
-
-    verifyMissionDelivery(
-      mission.id,
-      enteredOtp
-    );
-
-    updateStage(mission.id, "completed");
-  };
-
-  const activeMission = missionsList.find(
-    (mission) =>
-      mission.id === acceptedMissionId
+  const openMissions = missionsList.filter((m) =>
+    ["ASSIGNED", "PICKED_UP"].includes(m.dispatchStatus),
   );
+  const activeMission =
+    missionsList.find((m) => m.dispatchStatus === "PICKED_UP") ??
+    missionsList.find((m) => m.dispatchStatus === "ASSIGNED");
+  const activeStep = activeMission ? STEP_INDEX[activeMission.dispatchStatus] ?? 0 : -1;
+
+  const advance = async (mission: RescueMission, status: DispatchStatus) => {
+    setUpdatingId(mission.id);
+    setActionError("");
+    try {
+      await updateMissionStatus(mission.id, status);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not update the pickup.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const toggleAvailability = async () => {
+    setTogglingAvailability(true);
+    setActionError("");
+    try {
+      setVolunteerProfile(await api.toggleAvailability());
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not change availability.");
+    } finally {
+      setTogglingAvailability(false);
+    }
+  };
+
+  const isAvailable = volunteerProfile?.availability_status === "AVAILABLE";
 
   return (
     <div className="min-h-full bg-[#f4f8f5] text-[#102a43]">
       <div className="mx-auto max-w-[1500px] space-y-6">
+
+        {hasLoaded && !volunteerProfile && <VolunteerProfileSetup />}
+
+        {(error || actionError) && (
+          <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {actionError || error}
+          </p>
+        )}
 
         {/* HEADER */}
         <section className="rounded-2xl border border-slate-200 bg-white px-5 py-6 shadow-[0_8px_30px_rgba(15,23,42,0.05)] lg:px-7">
@@ -115,44 +104,62 @@ export const LogisticsFleetPage: React.FC = () => {
                   Volunteer Mission Board
                 </span>
 
-                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  Recovery network active
-                </span>
+                {volunteerProfile && (
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${isAvailable ? "text-emerald-600" : "text-slate-500"}`}>
+                    <span className={`h-2 w-2 rounded-full ${isAvailable ? "bg-emerald-500" : "bg-slate-400"}`} />
+                    {isAvailable ? "You are available for pickups" : "You are not taking new pickups"}
+                  </span>
+                )}
 
               </div>
 
               <h1 className="text-2xl font-extrabold tracking-tight text-[#102a43] sm:text-3xl">
-                Recovery Missions
+                Your Pickups
               </h1>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                Accept eligible food recovery missions, collect surplus
-                from donors, deliver it to verified receiving organizations,
-                and complete the digital handover.
+                NGOs assign pickups to the nearest available volunteer.
+                Collect the food from the donor, deliver it to the NGO,
+                and mark each step here.
               </p>
             </div>
 
-            <div className="flex shrink-0 items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              </div>
+            <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center">
 
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                  Available Missions
-                </p>
+              {volunteerProfile && (
+                <button
+                  type="button"
+                  onClick={toggleAvailability}
+                  disabled={togglingAvailability || (!isAvailable && openMissions.length > 0)}
+                  title={!isAvailable && openMissions.length > 0 ? "Finish your current pickup first" : undefined}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 transition hover:border-emerald-200 hover:text-emerald-700 disabled:opacity-50"
+                >
+                  {isAvailable ? "Go off duty" : "Go on duty"}
+                </button>
+              )}
 
-                <div className="mt-0.5 flex items-baseline gap-1">
-                  <span className="text-xl font-extrabold text-[#102a43]">
-                    {missionsList.length}
-                  </span>
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                </div>
 
-                  <span className="text-xs font-semibold text-emerald-600">
-                    in network
-                  </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    Open Pickups
+                  </p>
+
+                  <div className="mt-0.5 flex items-baseline gap-1">
+                    <span className="text-xl font-extrabold text-[#102a43]">
+                      {openMissions.length}
+                    </span>
+
+                    <span className="text-xs font-semibold text-emerald-600">
+                      assigned to you
+                    </span>
+                  </div>
                 </div>
               </div>
+
             </div>
 
           </div>
@@ -167,80 +174,18 @@ export const LogisticsFleetPage: React.FC = () => {
             </p>
 
             <h2 className="mt-1 text-lg font-extrabold text-[#102a43]">
-              Mission execution
+              {activeMission ? `Current pickup: ${activeMission.code}` : "No pickup in progress"}
             </h2>
           </div>
 
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-
-            <WorkflowStep
-              number="01"
-              label="Accept"
-              icon={<PackageCheck className="h-4 w-4" />}
-              active
-            />
-
-            <WorkflowStep
-              number="02"
-              label="Pickup"
-              icon={<MapPin className="h-4 w-4" />}
-            />
-
-            <WorkflowStep
-              number="03"
-              label="Transit"
-              icon={<Navigation className="h-4 w-4" />}
-            />
-
-            <WorkflowStep
-              number="04"
-              label="Handover"
-              icon={<ShieldCheck className="h-4 w-4" />}
-            />
-
-            <WorkflowStep
-              number="05"
-              label="Complete"
-              icon={<CheckCircle2 className="h-4 w-4" />}
-            />
-
+            <WorkflowStep number="01" label="Assigned" icon={<PackageCheck className="h-4 w-4" />} active={activeStep >= 0} />
+            <WorkflowStep number="02" label="Go to donor" icon={<MapPin className="h-4 w-4" />} active={activeStep >= 0} />
+            <WorkflowStep number="03" label="Picked up" icon={<Navigation className="h-4 w-4" />} active={activeStep >= 2} />
+            <WorkflowStep number="04" label="Hand over" icon={<ShieldCheck className="h-4 w-4" />} active={activeStep >= 2} />
+            <WorkflowStep number="05" label="Delivered" icon={<CheckCircle2 className="h-4 w-4" />} active={activeStep >= 4} />
           </div>
         </section>
-
-        {/* ACTIVE MISSION */}
-        {activeMission && (
-          <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] lg:p-6">
-
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-
-                  <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
-                    Your active mission
-                  </span>
-                </div>
-
-                <h2 className="mt-2 text-xl font-extrabold text-[#102a43]">
-                  {activeMission.surplusItem?.foodName ||
-                    "Food Recovery Mission"}
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-600">
-                  Mission {activeMission.code}
-                </p>
-              </div>
-
-              <StatusPill
-                status={activeMission.status}
-                size="sm"
-              />
-
-            </div>
-
-          </section>
-        )}
 
         {/* MISSION BOARD */}
         <section>
@@ -259,20 +204,15 @@ export const LogisticsFleetPage: React.FC = () => {
                   </p>
 
                   <h2 className="text-lg font-extrabold text-[#102a43]">
-                    Available Recovery Missions
+                    Assigned to You
                   </h2>
                 </div>
               </div>
-
-              <p className="mt-2 text-sm text-slate-500">
-                Choose a mission you can complete and follow the recovery
-                workflow from pickup to verified handover.
-              </p>
             </div>
 
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 shadow-sm">
               <CircleDot className="h-3.5 w-3.5 text-emerald-500" />
-              {missionsList.length} missions
+              {missionsList.length} total
             </div>
 
           </div>
@@ -282,289 +222,185 @@ export const LogisticsFleetPage: React.FC = () => {
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
 
               {missionsList.map((mission) => {
-
-                const stage = getStage(mission.id);
-
-                const isMyMission =
-                  acceptedMissionId === mission.id;
+                const pickup = mission.surplusItem?.location ?? null;
+                const delivery = mission.receiverLocation;
+                const isOpen = ["ASSIGNED", "PICKED_UP"].includes(mission.dispatchStatus);
+                const busy = updatingId === mission.id;
 
                 return (
                   <article
                     key={mission.id}
-                    className={`flex min-h-[470px] flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-all ${
-                      isMyMission
+                    className={`flex flex-col overflow-hidden rounded-2xl border bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)] transition-all ${
+                      isOpen
                         ? "border-emerald-300 ring-2 ring-emerald-100"
-                        : "border-slate-200 hover:border-emerald-200"
+                        : "border-slate-200"
                     }`}
                   >
 
                     {/* CARD HEADER */}
                     <div className="border-b border-slate-100 px-5 py-4">
-
                       <div className="flex items-start justify-between gap-3">
-
                         <div>
                           <span className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] font-bold text-slate-700">
                             {mission.code}
                           </span>
 
                           <h3 className="mt-4 text-base font-extrabold leading-6 text-[#102a43]">
-                            {mission.surplusItem?.foodName ||
-                              "Cooked Surplus Batch"}
+                            {mission.surplusItem?.foodName ?? "Food pickup"}
                           </h3>
 
                           <p className="mt-1 text-xs text-slate-500">
                             Donor:{" "}
                             <span className="font-semibold text-slate-700">
-                              {mission.surplusItem?.donorName ||
-                                "Verified donor"}
+                              {mission.surplusItem?.donorName ?? "Donor"}
                             </span>
+                            {mission.surplusItem && ` · ${mission.surplusItem.quantityKg} kg`}
                           </p>
                         </div>
 
-                        <StatusPill
-                          status={mission.status}
-                          size="sm"
-                        />
-
+                        <StatusPill status={mission.status} size="sm" />
                       </div>
                     </div>
 
                     {/* ROUTE */}
                     <div className="px-5 pt-5">
-
                       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-
                         <div className="flex gap-3">
-
                           <div className="flex flex-col items-center">
-
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100">
                               <MapPin className="h-4 w-4 text-emerald-600" />
                             </div>
-
                             <div className="my-1 h-7 w-px bg-slate-200" />
-
                             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
                               <Navigation className="h-4 w-4 text-indigo-600" />
                             </div>
-
                           </div>
 
                           <div className="min-w-0 flex-1">
-
                             <div>
                               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
                                 Pickup
                               </p>
-
-                              <p className="mt-1 truncate text-xs font-semibold text-slate-700">
-                                {mission.surplusItem?.location.address ||
-                                  "Pickup location provided after acceptance"}
-                              </p>
+                              {pickup ? (
+                                <a
+                                  href={mapsLink(pickup.lat, pickup.lng)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-1 block truncate text-xs font-semibold text-emerald-700 underline"
+                                >
+                                  {pickup.address} (open map)
+                                </a>
+                              ) : (
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                  Donor gave no location. Ask the NGO.
+                                </p>
+                              )}
                             </div>
 
                             <div className="mt-5">
-
                               <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-400">
                                 Delivery
                               </p>
-
                               <p className="mt-1 text-xs font-bold text-indigo-700">
-                                {mission.receiverName ||
-                                  "Verified receiving hub"}
+                                {mission.receiverName}
                               </p>
-
+                              {mission.receiverAddress && (
+                                <p className="mt-0.5 text-[11px] text-slate-500">
+                                  {delivery ? (
+                                    <a href={mapsLink(delivery.lat, delivery.lng)} target="_blank" rel="noreferrer" className="underline">
+                                      {mission.receiverAddress}
+                                    </a>
+                                  ) : (
+                                    mission.receiverAddress
+                                  )}
+                                </p>
+                              )}
                             </div>
-
                           </div>
-
                         </div>
-
                       </div>
-
                     </div>
 
                     {/* MISSION DETAILS */}
                     <div className="grid grid-cols-2 gap-3 px-5 pt-4">
-
                       <InfoCard
-                        label="Estimated ETA"
-                        value={`${mission.etaMinutes} mins`}
-                        icon={
-                          <Clock className="h-3.5 w-3.5 text-emerald-600" />
+                        label="Consume before"
+                        value={
+                          mission.surplusItem
+                            ? new Date(mission.surplusItem.safeUntil).toLocaleTimeString("en-IN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "—"
                         }
+                        icon={<Clock className="h-3.5 w-3.5 text-emerald-600" />}
                       />
-
                       <InfoCard
-                        label="Food Condition"
-                        value="Human verified"
-                        icon={
-                          <ShieldCheck className="h-3.5 w-3.5 text-indigo-600" />
-                        }
+                        label="Route"
+                        value={mission.distanceKm !== null ? `${mission.distanceKm} km` : "Unknown"}
+                        icon={<Navigation className="h-3.5 w-3.5 text-indigo-600" />}
                       />
-
                     </div>
 
                     {/* ACTION AREA */}
                     <div className="mt-auto px-5 pb-5 pt-4">
-
                       <div className="border-t border-slate-100 pt-4">
 
-                        {!isMyMission &&
-                          stage !== "completed" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleAcceptMission(
-                                  mission.id
-                                )
-                              }
-                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#102a43] px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#173f5f] hover:shadow-md"
-                            >
-                              <Truck className="h-4 w-4 text-emerald-300" />
-                              Accept Mission
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          )}
+                        {mission.dispatchStatus === "ASSIGNED" && (
+                          <button
+                            type="button"
+                            onClick={() => advance(mission, "PICKED_UP")}
+                            disabled={busy}
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            {busy ? "Saving…" : "I have picked up the food"}
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        )}
 
-                        {isMyMission &&
-                          stage === "accepted" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateStage(
-                                  mission.id,
-                                  "pickup"
-                                )
-                              }
-                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
-                            >
-                              <MapPin className="h-4 w-4" />
-                              Confirm Pickup
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          )}
-
-                        {isMyMission &&
-                          stage === "pickup" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateStage(
-                                  mission.id,
-                                  "transit"
-                                )
-                              }
-                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700"
-                            >
-                              <Navigation className="h-4 w-4" />
-                              Start Transit
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          )}
-
-                        {isMyMission &&
-                          stage === "transit" && (
-                            <div className="space-y-3">
-
-                              <a
-                                href={`tel:${mission.driverPhone}`}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-600 transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700"
-                              >
-                                <Phone className="h-4 w-4" />
-                                Contact Coordination
-                              </a>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  updateStage(
-                                    mission.id,
-                                    "handover"
-                                  )
-                                }
-                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700"
-                              >
-                                Arrived at Receiver
-                                <ArrowRight className="h-4 w-4" />
-                              </button>
-
-                            </div>
-                          )}
-
-                        {isMyMission &&
-                          stage === "handover" && (
-                            <div className="space-y-3">
-
-                              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
-
-                                <div className="flex items-center gap-2">
-
-                                  <ShieldCheck className="h-4 w-4 text-indigo-600" />
-
-                                  <p className="text-xs font-bold text-indigo-800">
-                                    Receiver verification
-                                  </p>
-
-                                </div>
-
-                                <p className="mt-1 text-[10px] leading-5 text-indigo-700">
-                                  Ask the authorized receiver for the
-                                  handover OTP. Do not use an OTP shown
-                                  by the system.
+                        {mission.dispatchStatus === "PICKED_UP" && (
+                          <div className="space-y-3">
+                            <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-indigo-600" />
+                                <p className="text-xs font-bold text-indigo-800">
+                                  Hand over in person
                                 </p>
-
                               </div>
-
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="Enter receiver OTP"
-                                value={
-                                  otpInputs[
-                                    String(mission.id)
-                                  ] || ""
-                                }
-                                onChange={(event) =>
-                                  setOtpInputs(
-                                    (current) => ({
-                                      ...current,
-                                      [String(
-                                        mission.id
-                                      )]:
-                                        event.target.value,
-                                    })
-                                  )
-                                }
-                                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#102a43] outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleVerifyHandover(
-                                    mission.id
-                                  )
-                                }
-                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
-                              >
-                                <ShieldCheck className="h-4 w-4" />
-                                Complete Handover
-                              </button>
-
+                              <p className="mt-1 text-[10px] leading-5 text-indigo-700">
+                                Give the food to an authorized person at the NGO,
+                                then confirm delivery.
+                              </p>
                             </div>
-                          )}
 
-                        {stage === "completed" && (
-                          <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
-                            <CheckCircle2 className="h-4 w-4" />
-                            Mission Completed
+                            <button
+                              type="button"
+                              onClick={() => advance(mission, "DELIVERED")}
+                              disabled={busy}
+                              className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 disabled:opacity-60"
+                            >
+                              <ShieldCheck className="h-4 w-4" />
+                              {busy ? "Saving…" : "Delivered to the NGO"}
+                            </button>
                           </div>
                         )}
 
-                      </div>
+                        {mission.dispatchStatus === "DELIVERED" && (
+                          <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Delivered
+                          </div>
+                        )}
 
+                        {mission.dispatchStatus === "CANCELLED" && (
+                          <div className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-500">
+                            Cancelled by the NGO
+                          </div>
+                        )}
+
+
+                      </div>
                     </div>
 
                   </article>
@@ -582,12 +418,13 @@ export const LogisticsFleetPage: React.FC = () => {
               </div>
 
               <h3 className="mt-4 text-lg font-extrabold text-[#102a43]">
-                No missions available
+                No pickups assigned yet
               </h3>
 
               <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                New eligible recovery missions will appear here when
-                they are assigned to the volunteer network.
+                {isAvailable
+                  ? "When an NGO claims food near you, the pickup will appear here."
+                  : "Go on duty to receive pickups."}
               </p>
 
             </div>
@@ -607,8 +444,8 @@ export const LogisticsFleetPage: React.FC = () => {
 
           <PrincipleCard
             number="02"
-            title="Verified Handover"
-            description="Digital handover records connect pickup, transit and receiver confirmation."
+            title="Recorded Handover"
+            description="Each pickup and delivery you confirm is logged in the donation's audit trail."
           />
 
           <PrincipleCard
@@ -620,13 +457,13 @@ export const LogisticsFleetPage: React.FC = () => {
         </section>
 
         {/* SAFETY NOTE */}
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-center text-xs text-emerald-800">
-          <span className="font-bold">
-            Volunteer safety protocol:
-          </span>{" "}
-          follow authorized pickup instructions and receiving-organization
-          procedures. RasoiGrid does not use AI to certify food as
-          microbiologically safe.
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-center text-xs text-emerald-800">
+          <Phone className="h-3.5 w-3.5" />
+          <span>
+            <span className="font-bold">Volunteer safety protocol:</span>{" "}
+            follow pickup instructions and the NGO's receiving procedures.
+            RasoiGrid does not certify food as safe to eat.
+          </span>
         </div>
 
       </div>

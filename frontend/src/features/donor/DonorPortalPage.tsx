@@ -17,34 +17,33 @@ import {
 
 import type {
   FoodCategory,
-  RecoveryDestinationType,
+  TempRequirement,
 } from '../../core/types/models';
+import { KG_PER_MEAL } from '../../core/api/mappers';
 
 import { useRescueStore } from '../../stores/useRescueStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 import confetti from 'canvas-confetti';
 
+/** Format a Date for a datetime-local input, in local time. */
+const toLocalInput = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: 'Waiting for an NGO',
+  CLAIMED: 'Claimed by an NGO',
+  IN_TRANSIT: 'Picked up',
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+};
+
 export const DonorPortalPage: React.FC = () => {
   const { logSurplus, surplusList } = useRescueStore();
 
-  /*
-   * Get the currently authenticated user.
-   */
-  const user = useAuthStore(
-    (state) => state.user
-  );
-
-  /*
-   * Use the registered user's name instead of
-   * the old hardcoded demo donor.
-   */
-  const [donorName, setDonorName] = useState(
-    user?.name || ''
-  );
-
-  const [donorType, setDonorType] =
-    useState<any>('hotel_buffet');
+  const user = useAuthStore((state) => state.user);
 
   const [foodName, setFoodName] = useState('');
 
@@ -54,56 +53,92 @@ export const DonorPortalPage: React.FC = () => {
   const [quantityKg, setQuantityKg] =
     useState<number>(45);
 
-  const [portions, setPortions] =
-    useState<number>(120);
-
   const [tempRequirement, setTempRequirement] =
-    useState<
-      'hot_above_60c' | 'ambient' | 'chilled_below_4c'
-    >('hot_above_60c');
+    useState<TempRequirement>('hot_above_60c');
 
-  const [neighborhood, setNeighborhood] =
-    useState('Bandra West');
+  const [cookedAt, setCookedAt] = useState(() =>
+    toLocalInput(new Date(Date.now() - 30 * 60 * 1000))
+  );
 
-  const [targetDestinationType, setTargetDestinationType] =
-    useState<RecoveryDestinationType>('shelter');
+  const [safeUntil, setSafeUntil] = useState(() =>
+    toLocalInput(new Date(Date.now() + 4 * 60 * 60 * 1000))
+  );
+
+  const [packagingAvailable, setPackagingAvailable] =
+    useState(false);
+
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
 
+  const [error, setError] = useState('');
+
   const [showSuccessModal, setShowSuccessModal] =
     useState(false);
+
+  const estimatedMeals = Math.round(quantityKg / KG_PER_MEAL);
 
   const applyPreset = (preset: {
     food: string;
     cat: FoodCategory;
     kg: number;
-    port: number;
-    temp:
-      | 'hot_above_60c'
-      | 'ambient'
-      | 'chilled_below_4c';
-    dest: RecoveryDestinationType;
+    temp: TempRequirement;
   }) => {
     setFoodName(preset.food);
     setCategory(preset.cat);
     setQuantityKg(preset.kg);
-    setPortions(preset.port);
     setTempRequirement(preset.temp);
-    setTargetDestinationType(preset.dest);
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      setError('This browser cannot share your location. Enter it by hand.');
+      return;
+    }
+
+    setIsLocating(true);
+    setError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toFixed(5));
+        setLongitude(position.coords.longitude.toFixed(5));
+        setIsLocating(false);
+      },
+      () => {
+        setError('Could not read your location. Enter it by hand.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSubmit = async (
     e: React.FormEvent
   ) => {
     e.preventDefault();
+    setError('');
 
     if (!foodName.trim()) {
       return;
     }
 
-    if (!donorName.trim()) {
-      setDonorName(user?.name || '');
+    const lat = latitude.trim() === '' ? null : Number(latitude);
+    const lng = longitude.trim() === '' ? null : Number(longitude);
+
+    if (lat === null || lng === null || Number.isNaN(lat) || Number.isNaN(lng)) {
+      setError('Add the pickup location so NGOs and volunteers can find the food.');
+      return;
+    }
+
+    const cooked = new Date(cookedAt);
+    const safe = new Date(safeUntil);
+
+    if (safe <= cooked) {
+      setError('"Consume before" must be later than the time the food was prepared.');
       return;
     }
 
@@ -111,45 +146,15 @@ export const DonorPortalPage: React.FC = () => {
 
     try {
       await logSurplus({
-        donorName,
-        donorType,
         foodName,
         category,
         quantityKg: Number(quantityKg),
-        portions: Number(portions),
-
-        cookedAt: new Date(
-          Date.now() - 30 * 60 * 1000
-        ).toISOString(),
-
-        safeUntil: new Date(
-          Date.now() + 4 * 60 * 60 * 1000
-        ).toISOString(),
-
+        cookedAt: cooked.toISOString(),
+        safeUntil: safe.toISOString(),
         tempRequirement,
-
-        dietaryTags: [
-          'vegetarian',
-          'halal',
-        ],
-
-        location: {
-          lat: 19.043,
-          lng: 72.819,
-          address:
-            'BJ Road, Bandra Bandstand',
-          neighborhood,
-          city: 'Mumbai',
-        },
-
-        priority:
-          quantityKg > 50
-            ? 'critical'
-            : 'high',
-
-        confidenceScore: 98,
-
-        targetDestinationType,
+        packagingAvailable,
+        latitude: lat,
+        longitude: lng,
       });
 
       setShowSuccessModal(true);
@@ -159,6 +164,8 @@ export const DonorPortalPage: React.FC = () => {
         spread: 60,
         origin: { y: 0.7 },
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not log the surplus.');
     } finally {
       setIsSubmitting(false);
     }
@@ -210,7 +217,7 @@ export const DonorPortalPage: React.FC = () => {
               </p>
 
               <p className="text-sm font-semibold text-slate-800">
-                {user?.name || donorName || 'Donor'}
+                {user?.name || user?.email || 'Donor'}
               </p>
 
             </div>
@@ -347,9 +354,7 @@ export const DonorPortalPage: React.FC = () => {
                           food: 'Shahi Paneer, Dal Makhani & Jeera Rice',
                           cat: 'cooked_meals',
                           kg: 60,
-                          port: 160,
                           temp: 'hot_above_60c',
-                          dest: 'shelter',
                         })
                       }
                       className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
@@ -363,7 +368,7 @@ export const DonorPortalPage: React.FC = () => {
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">
-                        60 kg · 160 portions · Hot
+                        60 kg · about 120 meals · Hot
                       </p>
                     </button>
 
@@ -374,9 +379,7 @@ export const DonorPortalPage: React.FC = () => {
                           food: 'Brioche Buns, Croissants & Sandwiches',
                           cat: 'bakery_grains',
                           kg: 25,
-                          port: 80,
                           temp: 'ambient',
-                          dest: 'community_kitchen',
                         })
                       }
                       className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
@@ -390,7 +393,7 @@ export const DonorPortalPage: React.FC = () => {
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">
-                        25 kg · 80 portions · Ambient
+                        25 kg · about 50 meals · Ambient
                       </p>
                     </button>
 
@@ -401,9 +404,7 @@ export const DonorPortalPage: React.FC = () => {
                           food: 'Vegetable Peels & Kitchen Prep Trimmings',
                           cat: 'non_edible_organic',
                           kg: 180,
-                          port: 0,
                           temp: 'ambient',
-                          dest: 'biogas_plant',
                         })
                       }
                       className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-lime-200 hover:bg-lime-50"
@@ -433,33 +434,47 @@ export const DonorPortalPage: React.FC = () => {
                   className="space-y-6"
                 >
 
-                  {/* Donor details */}
+                  {/* Pickup location */}
                   <div>
 
                     <div className="mb-4 flex items-center gap-2">
 
-                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <MapPin className="h-4 w-4 text-emerald-600" />
 
                       <h3 className="text-sm font-semibold text-slate-800">
-                        Where is the surplus coming from?
+                        Where should the food be picked up?
                       </h3>
 
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
+                      <div className="flex items-end">
+
+                        <button
+                          type="button"
+                          onClick={useMyLocation}
+                          disabled={isLocating}
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+                        >
+                          <MapPin className="h-4 w-4" />
+                          {isLocating ? 'Finding you…' : 'Use my current location'}
+                        </button>
+
+                      </div>
+
                       <div>
 
                         <label className="mb-2 block text-xs font-medium text-slate-500">
-                          Establishment name
+                          Latitude
                         </label>
 
                         <input
-                          type="text"
-                          value={donorName}
-                          onChange={(e) =>
-                            setDonorName(e.target.value)
-                          }
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 19.0596"
+                          value={latitude}
+                          onChange={(e) => setLatitude(e.target.value)}
                           required
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                         />
@@ -469,66 +484,26 @@ export const DonorPortalPage: React.FC = () => {
                       <div>
 
                         <label className="mb-2 block text-xs font-medium text-slate-500">
-                          Establishment type
+                          Longitude
                         </label>
 
-                        <select
-                          value={donorType}
-                          onChange={(e) =>
-                            setDonorType(e.target.value)
-                          }
+                        <input
+                          type="number"
+                          step="any"
+                          placeholder="e.g. 72.8295"
+                          value={longitude}
+                          onChange={(e) => setLongitude(e.target.value)}
+                          required
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-                        >
-
-                          <option value="hotel_buffet">
-                            Hotel / Buffet
-                          </option>
-
-                          <option value="corporate_cafeteria">
-                            Corporate Cafeteria
-                          </option>
-
-                          <option value="restaurant">
-                            Restaurant / Cloud Kitchen
-                          </option>
-
-                          <option value="supermarket">
-                            Supermarket / Retail
-                          </option>
-
-                          <option value="event_caterer">
-                            Event / Wedding Caterer
-                          </option>
-
-                        </select>
-
-                      </div>
-
-                      <div>
-
-                        <label className="mb-2 block text-xs font-medium text-slate-500">
-                          Neighborhood
-                        </label>
-
-                        <div className="relative">
-
-                          <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-
-                          <input
-                            type="text"
-                            value={neighborhood}
-                            onChange={(e) =>
-                              setNeighborhood(e.target.value)
-                            }
-                            required
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-                          />
-
-                        </div>
+                        />
 
                       </div>
 
                     </div>
+
+                    <p className="mt-2 text-xs text-slate-400">
+                      Coordinates are used to rank the nearest NGOs and volunteers.
+                    </p>
 
                   </div>
 
@@ -621,16 +596,9 @@ export const DonorPortalPage: React.FC = () => {
                           <input
                             type="number"
                             value={quantityKg}
-                            onChange={(e) => {
-                              const kg =
-                                Number(e.target.value);
-
-                              setQuantityKg(kg);
-
-                              setPortions(
-                                Math.round(kg * 2.8)
-                              );
-                            }}
+                            onChange={(e) =>
+                              setQuantityKg(Number(e.target.value))
+                            }
                             min="1"
                             required
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
@@ -640,22 +608,13 @@ export const DonorPortalPage: React.FC = () => {
 
                         <div>
 
-                          <label className="mb-2 block text-xs font-medium text-slate-500">
-                            Estimated portions
-                          </label>
+                          <p className="mb-2 block text-xs font-medium text-slate-500">
+                            Estimated meals
+                          </p>
 
-                          <input
-                            type="number"
-                            value={portions}
-                            onChange={(e) =>
-                              setPortions(
-                                Number(e.target.value)
-                              )
-                            }
-                            min="0"
-                            required
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-                          />
+                          <p className="rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm font-semibold text-slate-700">
+                            About {estimatedMeals.toLocaleString()}
+                          </p>
 
                         </div>
 
@@ -673,7 +632,7 @@ export const DonorPortalPage: React.FC = () => {
                       <Clock3 className="h-4 w-4 text-emerald-600" />
 
                       <h3 className="text-sm font-semibold text-slate-800">
-                        Handling & recovery
+                        Handling & timing
                       </h3>
 
                     </div>
@@ -690,10 +649,7 @@ export const DonorPortalPage: React.FC = () => {
                           value={tempRequirement}
                           onChange={(e) =>
                             setTempRequirement(
-                              e.target.value as
-                                | 'hot_above_60c'
-                                | 'ambient'
-                                | 'chilled_below_4c'
+                              e.target.value as TempRequirement
                             )
                           }
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
@@ -718,42 +674,47 @@ export const DonorPortalPage: React.FC = () => {
                       <div>
 
                         <label className="mb-2 block text-xs font-medium text-slate-500">
-                          Preferred recovery destination
+                          Prepared at
                         </label>
 
-                        <select
-                          value={targetDestinationType}
-                          onChange={(e) =>
-                            setTargetDestinationType(
-                              e.target.value as RecoveryDestinationType
-                            )
-                          }
+                        <input
+                          type="datetime-local"
+                          value={cookedAt}
+                          onChange={(e) => setCookedAt(e.target.value)}
+                          required
                           className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-                        >
-
-                          <option value="shelter">
-                            Community shelter
-                          </option>
-
-                          <option value="community_kitchen">
-                            Community kitchen / food bank
-                          </option>
-
-                          <option value="animal_sanctuary">
-                            Animal recovery
-                          </option>
-
-                          <option value="biogas_plant">
-                            Biogas facility
-                          </option>
-
-                          <option value="compost_facility">
-                            Compost facility
-                          </option>
-
-                        </select>
+                        />
 
                       </div>
+
+                      <div>
+
+                        <label className="mb-2 block text-xs font-medium text-slate-500">
+                          Consume before
+                        </label>
+
+                        <input
+                          type="datetime-local"
+                          value={safeUntil}
+                          onChange={(e) => setSafeUntil(e.target.value)}
+                          required
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                        />
+
+                      </div>
+
+                      <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+
+                        <input
+                          type="checkbox"
+                          checked={packagingAvailable}
+                          onChange={(e) => setPackagingAvailable(e.target.checked)}
+                          className="h-4 w-4 accent-emerald-600"
+                        />
+
+                        Food is packed and ready to carry
+
+                      </label>
 
                     </div>
 
@@ -779,6 +740,12 @@ export const DonorPortalPage: React.FC = () => {
                     </div>
 
                   </div>
+
+                  {error && (
+                    <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {error}
+                    </p>
+                  )}
 
                   {/* Submit */}
                   <button
@@ -861,11 +828,11 @@ export const DonorPortalPage: React.FC = () => {
                   <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
 
                     <p className="text-xs text-slate-400">
-                      Portions
+                      Meals (est.)
                     </p>
 
                     <p className="mt-1 text-xl font-bold text-slate-800">
-                      {portions.toLocaleString()}
+                      {estimatedMeals.toLocaleString()}
                     </p>
 
                   </div>
@@ -926,12 +893,18 @@ export const DonorPortalPage: React.FC = () => {
                 </div>
 
                 <span className="text-xs text-slate-400">
-                  Today
+                  Latest 3
                 </span>
 
               </div>
 
               <div className="space-y-3">
+
+                {surplusList.length === 0 && (
+                  <p className="text-sm text-slate-400">
+                    Nothing logged yet.
+                  </p>
+                )}
 
                 {surplusList
                   .slice(0, 3)
@@ -944,7 +917,7 @@ export const DonorPortalPage: React.FC = () => {
                       <div className="flex items-center justify-between gap-3">
 
                         <span className="text-xs font-semibold text-emerald-700">
-                          {item.id}
+                          {STATUS_LABEL[item.backendStatus] ?? item.backendStatus}
                         </span>
 
                         <span className="text-xs font-semibold text-slate-500">
@@ -961,7 +934,7 @@ export const DonorPortalPage: React.FC = () => {
 
                         <MapPin className="h-3 w-3" />
 
-                        {item.location.neighborhood}
+                        {item.location?.neighborhood ?? 'No location'}
 
                       </div>
 
@@ -1034,9 +1007,8 @@ export const DonorPortalPage: React.FC = () => {
             </h3>
 
             <p className="mt-3 text-sm leading-6 text-slate-500">
-              Your surplus has been added to the current rescue
-              workflow. Matching and routing can now use the details
-              you provided.
+              Verified NGOs can now see and claim it. Follow its
+              status on your dashboard and history pages.
             </p>
 
             <div className="mt-5 rounded-2xl bg-emerald-50 p-4 text-left">
@@ -1056,7 +1028,7 @@ export const DonorPortalPage: React.FC = () => {
                   </p>
 
                   <p className="text-sm font-semibold text-emerald-900">
-                    {quantityKg} kg · {portions} portions
+                    {quantityKg} kg · about {estimatedMeals} meals
                   </p>
 
                 </div>

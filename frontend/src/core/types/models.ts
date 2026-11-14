@@ -33,43 +33,45 @@ export interface GeoLocation {
   city: string;
 }
 
+export type TempRequirement = 'hot_above_60c' | 'ambient' | 'chilled_below_4c';
+
+/** A donation as the UI shows it. Built from the API in core/api/mappers.ts. */
 export interface FoodSurplusItem {
   id: string;
+  backendId: number;
   donorName: string;
-  donorType: 'hotel_buffet' | 'corporate_cafeteria' | 'restaurant' | 'supermarket' | 'event_caterer';
   foodName: string;
   category: FoodCategory;
   quantityKg: number;
+  unit: string;
+  /** Estimated at 0.5 kg per meal, the backend's planning figure. */
   portions: number;
   cookedAt: string; // ISO String
   safeUntil: string; // ISO String
-  tempRequirement: 'hot_above_60c' | 'ambient' | 'chilled_below_4c';
-  dietaryTags: ('vegetarian' | 'vegan' | 'halal' | 'jain' | 'contains_nuts' | 'dairy_free')[];
-  location: GeoLocation;
+  hoursLeft: number;
+  tempRequirement: TempRequirement;
+  packagingAvailable: boolean;
+  location: GeoLocation | null;
   status: RescueStatus;
+  backendStatus: string;
   priority: PriorityLevel;
-  confidenceScore?: number; // AI forecast confidence (0-100)
-  targetDestinationType: RecoveryDestinationType;
-  assignedVehicleId?: string;
-  methaneAvoidedKg: number;
-  waterSavedLiters: number;
+  createdAt: string | null;
 }
 
+/** A dispatch (pickup and delivery job) as the UI shows it. */
 export interface RescueMission {
   id: string;
+  backendId: number;
   code: string;
-  surplusItem: FoodSurplusItem;
-  pickupTime: string;
-  etaMinutes: number;
-  distanceKm: number;
+  surplusItem: FoodSurplusItem | null;
+  dispatchStatus: string;
+  volunteerId: number | null;
   driverName: string;
   driverPhone: string;
-  vehiclePlate: string;
-  vehicleType: 'electric_van' | 'insulated_scooter' | 'refrigerated_truck';
   receiverName: string;
-  receiverLocation: GeoLocation;
-  currentTempCelsius: number;
-  otpCode: string;
+  receiverAddress: string;
+  receiverLocation: GeoLocation | null;
+  distanceKm: number | null;
   status: RescueStatus;
 }
 
@@ -90,13 +92,10 @@ export interface ForecastPrediction {
 export interface ImpactMetrics {
   totalMealsRecovered: number;
   totalKgRecovered: number;
-  co2eAvoidedTons: number;
-  methaneAvoidedKg: number;
-  waterSavedMegaLiters: number;
-  activeFleetCount: number;
-  activeKitchenPartners: number;
-  communityBeneficiaries: number;
-  circularDiversionRatePercent: number; // percentage directed to human + circular vs landfill
+  organicRecoveryKg: number;
+  successfulRescues: number;
+  totalDonations: number;
+  rescueRatePercent: number;
 }
 
 export interface ReceiverHub {

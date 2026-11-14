@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useRescueStore } from "../../stores/useRescueStore";
+import { NgoPendingBanner, NgoProfileSetup } from "../../components/profile/ProfileSetup";
 import {
   Activity,
   ArrowRight,
@@ -19,54 +21,22 @@ import {
 } from "lucide-react";
 
 type MissionStatus =
-  | "Priority"
-  | "Matched"
+  | "Awaiting volunteer"
+  | "Assigned"
   | "In Transit"
-  | "Recovered";
+  | "Delivered"
+  | "Cancelled";
 
-interface Mission {
-  id: string;
-  source: string;
-  food: string;
-  quantity: string;
-  receiver: string;
-  distance: string;
-  status: MissionStatus;
-  priority: string;
-}
+const MISSION_STATUS: Record<string, MissionStatus> = {
+  PENDING: "Awaiting volunteer",
+  ASSIGNED: "Assigned",
+  PICKED_UP: "In Transit",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+};
 
-const activeMissions: Mission[] = [
-  {
-    id: "RG-1042",
-    source: "Hotel / Catering",
-    food: "Cooked rice & vegetable curry",
-    quantity: "18 kg",
-    receiver: "Community Meal Network",
-    distance: "2.4 km",
-    status: "Priority",
-    priority: "High",
-  },
-  {
-    id: "RG-1038",
-    source: "Bakery",
-    food: "Fresh bread & bakery items",
-    quantity: "9 kg",
-    receiver: "Local Food Rescue Partner",
-    distance: "3.1 km",
-    status: "In Transit",
-    priority: "Medium",
-  },
-  {
-    id: "RG-1031",
-    source: "Restaurant",
-    food: "Prepared lunch surplus",
-    quantity: "24 kg",
-    receiver: "Circular Recovery",
-    distance: "4.8 km",
-    status: "Recovered",
-    priority: "Low",
-  },
-];
+const formatHours = (h: number) =>
+  h <= 0 ? "Past consume-before time" : h < 1 ? `${Math.round(h * 60)} min left` : `${h.toFixed(1)} h left`;
 
 const statusStyles: Record<
   MissionStatus,
@@ -75,11 +45,11 @@ const statusStyles: Record<
     icon: React.ReactNode;
   }
 > = {
-  Priority: {
+  "Awaiting volunteer": {
     className: "bg-rose-50 text-rose-700",
     icon: <Zap className="h-3.5 w-3.5" />,
   },
-  Matched: {
+  Assigned: {
     className: "bg-amber-50 text-amber-700",
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
   },
@@ -87,13 +57,34 @@ const statusStyles: Record<
     className: "bg-blue-50 text-blue-700",
     icon: <Truck className="h-3.5 w-3.5" />,
   },
-  Recovered: {
+  Delivered: {
     className: "bg-emerald-50 text-emerald-700",
     icon: <Leaf className="h-3.5 w-3.5" />,
+  },
+  Cancelled: {
+    className: "bg-slate-100 text-slate-500",
+    icon: <Clock3 className="h-3.5 w-3.5" />,
   },
 };
 
 export const NGODashboardPage: React.FC = () => {
+  const { surplusList, missionsList, ngoProfile, hasLoaded, error } = useRescueStore();
+
+  const available = surplusList.filter((d) => d.backendStatus === "AVAILABLE");
+  const availableKg = available.reduce((sum, d) => sum + d.quantityKg, 0);
+  const urgent = available.filter((d) => d.priority === "critical" || d.priority === "high");
+  const mostUrgent = [...available].sort((x, y) => x.hoursLeft - y.hoursLeft)[0];
+
+  const activeMissions = missionsList.filter((m) =>
+    ["PENDING", "ASSIGNED", "PICKED_UP"].includes(m.dispatchStatus),
+  );
+  const inTransit = missionsList.filter((m) => m.dispatchStatus === "PICKED_UP");
+  const awaitingVolunteer = missionsList.filter((m) => m.dispatchStatus === "PENDING");
+  const delivered = missionsList.filter((m) => m.dispatchStatus === "DELIVERED");
+  const deliveredKg = delivered.reduce((sum, m) => sum + (m.surplusItem?.quantityKg ?? 0), 0);
+
+  const recentMissions = missionsList.slice(0, 5);
+
   return (
     <div className="min-h-screen bg-slate-50">
 
@@ -136,6 +127,16 @@ export const NGODashboardPage: React.FC = () => {
       {/* MAIN */}
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
+        {hasLoaded && !ngoProfile && <NgoProfileSetup />}
+
+        {ngoProfile && ngoProfile.verification_status !== "VERIFIED" && <NgoPendingBanner />}
+
+        {error && (
+          <p role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+
         {/* LIVE STATUS */}
         <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
 
@@ -150,17 +151,17 @@ export const NGODashboardPage: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-semibold text-slate-900">
-                    Network operations are live
+                    {ngoProfile?.organization_name ?? "Your NGO"}
                   </p>
 
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                    LIVE
+                    {ngoProfile?.verification_status ?? "NO PROFILE"}
                   </span>
                 </div>
 
                 <p className="mt-1 text-xs leading-5 text-slate-600 sm:text-sm">
-                  Surplus signals, recovery missions, and active routes are
-                  being coordinated across the network.
+                  Available donations and your pickups, loaded from the
+                  RasoiGrid server.
                 </p>
               </div>
 
@@ -170,17 +171,17 @@ export const NGODashboardPage: React.FC = () => {
 
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                142 active nodes
+                {available.length} available donations
               </span>
 
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-blue-500" />
-                18 active missions
+                {activeMissions.length} active pickups
               </span>
 
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
-                6 priority alerts
+                {urgent.length} urgent (under 6 h left)
               </span>
 
             </div>
@@ -199,15 +200,15 @@ export const NGODashboardPage: React.FC = () => {
 
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Incoming Surplus
+                  Available Surplus
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  186 kg
+                  {availableKg.toLocaleString()} kg
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-emerald-600">
-                  +23 kg in the last hour
+                  Across {available.length} donation{available.length === 1 ? "" : "s"}
                 </p>
               </div>
 
@@ -225,15 +226,15 @@ export const NGODashboardPage: React.FC = () => {
 
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Priority Missions
+                  Urgent Donations
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  6
+                  {urgent.length}
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-rose-600">
-                  Require attention now
+                  6 hours or less to consume
                 </p>
               </div>
 
@@ -251,15 +252,15 @@ export const NGODashboardPage: React.FC = () => {
 
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Active Receivers
+                  Active Pickups
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  27
+                  {activeMissions.length}
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  Verified receiving points
+                  {inTransit.length} on the way
                 </p>
               </div>
 
@@ -277,15 +278,15 @@ export const NGODashboardPage: React.FC = () => {
 
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Recovered Today
+                  Delivered to You
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  124 kg
+                  {deliveredKg.toLocaleString()} kg
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-emerald-600">
-                  89 kg for people
+                  {delivered.length} completed pickup{delivered.length === 1 ? "" : "s"}
                 </p>
               </div>
 
@@ -315,27 +316,22 @@ export const NGODashboardPage: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="font-semibold text-slate-900">
-                      AI Recovery Intelligence
+                      Most Urgent Donation
                     </h2>
-
-                    <span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-700">
-                      Gemini Assisted
-                    </span>
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Prioritization and routing recommendations for active
-                    surplus.
+                    The available donation with the least time left.
                   </p>
                 </div>
 
               </div>
 
               <Link
-                to="/app/forecast"
+                to="/app/command"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-violet-600 hover:text-violet-700"
               >
-                Open prediction matrix
+                Claim in live operations
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
 
@@ -358,17 +354,17 @@ export const NGODashboardPage: React.FC = () => {
                 <div className="min-w-0">
 
                   <p className="text-xs font-bold uppercase tracking-wider text-violet-600">
-                    Current recommendation
+                    Claim this first
                   </p>
 
                   <h3 className="mt-1 text-sm font-semibold text-slate-900">
-                    Prioritize RG-1042 for immediate receiver matching
+                    {mostUrgent ? mostUrgent.foodName : "No donations are waiting right now"}
                   </h3>
 
                   <p className="mt-2 text-xs leading-5 text-slate-600">
-                    18 kg of prepared food has a high recovery priority based
-                    on quantity, food type, reported handling window, and
-                    current receiver demand.
+                    {mostUrgent
+                      ? `${mostUrgent.quantityKg} kg from ${mostUrgent.donorName}, about ${mostUrgent.portions} meals.`
+                      : "New donations from nearby donors will show up here."}
                   </p>
 
                 </div>
@@ -382,26 +378,26 @@ export const NGODashboardPage: React.FC = () => {
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
                     Priority
                   </p>
-                  <p className="mt-1 text-sm font-bold text-rose-600">
-                    HIGH
+                  <p className="mt-1 text-sm font-bold uppercase text-rose-600">
+                    {mostUrgent?.priority ?? "—"}
                   </p>
                 </div>
 
                 <div className="rounded-lg bg-white p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Suggested route
+                    Time left
                   </p>
                   <p className="mt-1 text-sm font-bold text-slate-900">
-                    Receiver match
+                    {mostUrgent ? formatHours(mostUrgent.hoursLeft) : "—"}
                   </p>
                 </div>
 
                 <div className="rounded-lg bg-white p-3">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Confidence
+                    Location
                   </p>
-                  <p className="mt-1 text-sm font-bold text-violet-600">
-                    87%
+                  <p className="mt-1 truncate text-sm font-bold text-violet-600">
+                    {mostUrgent?.location?.neighborhood ?? "—"}
                   </p>
                 </div>
 
@@ -425,8 +421,8 @@ export const NGODashboardPage: React.FC = () => {
                   </p>
 
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    AI supports prioritization and recommendations. It does
-                    not certify food as microbiologically safe.
+                    Priority here is based only on time left. It does not
+                    certify food as safe to eat.
                   </p>
 
                   <p className="mt-3 text-xs font-semibold text-slate-700">
@@ -453,11 +449,11 @@ export const NGODashboardPage: React.FC = () => {
 
               <div>
                 <h2 className="font-semibold text-slate-900">
-                  Active Recovery Missions
+                  Your Pickups
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-500">
-                  Current surplus-to-recovery operations
+                  Latest dispatches for your NGO
                 </p>
               </div>
 
@@ -474,9 +470,16 @@ export const NGODashboardPage: React.FC = () => {
 
             <div className="divide-y divide-slate-100">
 
-              {activeMissions.map((mission) => {
+              {recentMissions.length === 0 && (
+                <p className="px-5 py-8 text-center text-sm text-slate-500">
+                  No pickups yet. Claim a donation in live operations to create one.
+                </p>
+              )}
 
-                const status = statusStyles[mission.status];
+              {recentMissions.map((mission) => {
+
+                const statusLabel = MISSION_STATUS[mission.dispatchStatus] ?? "Assigned";
+                const status = statusStyles[statusLabel];
 
                 return (
                   <div
@@ -498,17 +501,17 @@ export const NGODashboardPage: React.FC = () => {
                           <div className="flex flex-wrap items-center gap-2">
 
                             <h3 className="text-sm font-semibold text-slate-900">
-                              {mission.food}
+                              {mission.surplusItem?.foodName ?? "Donation"}
                             </h3>
 
                             <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
-                              {mission.id}
+                              {mission.code}
                             </span>
 
                           </div>
 
                           <p className="mt-1 text-xs text-slate-500">
-                            {mission.source} · {mission.quantity}
+                            {mission.surplusItem?.donorName ?? "Donor"} · {mission.surplusItem?.quantityKg ?? 0} kg
                           </p>
 
                         </div>
@@ -520,29 +523,29 @@ export const NGODashboardPage: React.FC = () => {
                       <div className="min-w-0 xl:w-56">
 
                         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Receiver
+                          Volunteer
                         </p>
 
                         <p className="mt-1 text-xs font-medium text-slate-700">
-                          {mission.receiver}
+                          {mission.driverName}
                         </p>
 
                         <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
                           <MapPin className="h-3 w-3" />
-                          {mission.distance}
+                          {mission.distanceKm !== null ? `${mission.distanceKm} km route` : "Route distance unknown"}
                         </p>
 
                       </div>
 
 
                       {/* STATUS */}
-                      <div className="flex items-center justify-between gap-3 xl:w-32 xl:justify-end">
+                      <div className="flex items-center justify-between gap-3 xl:w-44 xl:justify-end">
 
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${status.className}`}
                         >
                           {status.icon}
-                          {mission.status}
+                          {statusLabel}
                         </span>
 
                       </div>
@@ -587,18 +590,18 @@ export const NGODashboardPage: React.FC = () => {
 
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        Verified Receivers
+                        Available Donations
                       </p>
 
                       <p className="text-xs text-slate-500">
-                        Ready to receive
+                        Ready to claim
                       </p>
                     </div>
 
                   </div>
 
                   <span className="text-sm font-bold text-emerald-600">
-                    21
+                    {available.length}
                   </span>
                 </div>
 
@@ -623,7 +626,7 @@ export const NGODashboardPage: React.FC = () => {
                   </div>
 
                   <span className="text-sm font-bold text-blue-600">
-                    8
+                    {inTransit.length}
                   </span>
                 </div>
 
@@ -637,18 +640,18 @@ export const NGODashboardPage: React.FC = () => {
 
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        Awaiting Match
+                        Awaiting Volunteer
                       </p>
 
                       <p className="text-xs text-slate-500">
-                        Need assignment
+                        No volunteer was free
                       </p>
                     </div>
 
                   </div>
 
                   <span className="text-sm font-bold text-amber-600">
-                    5
+                    {awaitingVolunteer.length}
                   </span>
                 </div>
 
@@ -662,18 +665,18 @@ export const NGODashboardPage: React.FC = () => {
 
                     <div>
                       <p className="text-sm font-medium text-slate-900">
-                        AI Recommendations
+                        Completed Pickups
                       </p>
 
                       <p className="text-xs text-slate-500">
-                        Generated today
+                        Delivered to your NGO
                       </p>
                     </div>
 
                   </div>
 
                   <span className="text-sm font-bold text-violet-600">
-                    34
+                    {delivered.length}
                   </span>
                 </div>
 
@@ -688,12 +691,12 @@ export const NGODashboardPage: React.FC = () => {
 
                   <div>
                     <p className="text-xs font-semibold text-slate-900">
-                      Circular recovery
+                      People first
                     </p>
 
                     <p className="mt-1 text-[11px] leading-5 text-slate-500">
-                      35 kg of today's unavoidable organic surplus has been
-                      directed toward appropriate recovery pathways.
+                      Check food on arrival. Only accept what is safe to
+                      serve; route the rest to composting or biogas.
                     </p>
                   </div>
 

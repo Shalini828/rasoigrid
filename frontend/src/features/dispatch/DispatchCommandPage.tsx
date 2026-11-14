@@ -31,8 +31,10 @@ import {
 } from "lucide-react";
 
 import { StatusPill } from "../../components/ui/StatusPill";
-import { ConfidenceScore } from "../../components/ui/ConfidenceScore";
 import { useRescueStore } from "../../stores/useRescueStore";
+import type { FoodSurplusItem } from "../../core/types/models";
+import type { DispatchStatus } from "../../core/api/types";
+import { NgoPendingBanner, NgoProfileSetup } from "../../components/profile/ProfileSetup";
 
 type MapPoint = {
   lat: number;
@@ -42,101 +44,15 @@ type MapPoint = {
 
 const MUMBAI_CENTER: [number, number] = [19.076, 72.8777];
 
-/*
- * Demo neighbourhood coordinates for the operational map.
- * If your backend later provides exact coordinates, those can replace these.
- */
-const NEIGHBORHOOD_COORDS: Record<string, MapPoint> = {
-  "Bandra West": {
-    lat: 19.0607,
-    lng: 72.8362,
-    label: "Bandra West",
-  },
-  "Bandra-Kurla Complex": {
-    lat: 19.0728,
-    lng: 72.8826,
-    label: "Bandra-Kurla Complex",
-  },
-  "Goregaon East": {
-    lat: 19.1663,
-    lng: 72.8566,
-    label: "Goregaon East",
-  },
-  Powai: {
-    lat: 19.1176,
-    lng: 72.906,
-    label: "Powai",
-  },
-  "Andheri West": {
-    lat: 19.1364,
-    lng: 72.8277,
-    label: "Andheri West",
-  },
-  Dharavi: {
-    lat: 19.0418,
-    lng: 72.8536,
-    label: "Dharavi",
-  },
-  "Lower Parel": {
-    lat: 18.9988,
-    lng: 72.8258,
-    label: "Lower Parel",
-  },
-  Colaba: {
-    lat: 18.9067,
-    lng: 72.8147,
-    label: "Colaba",
-  },
-  Worli: {
-    lat: 19.0178,
-    lng: 72.8173,
-    label: "Worli",
-  },
-  Kurla: {
-    lat: 19.0726,
-    lng: 72.8797,
-    label: "Kurla",
-  },
-};
-
-const FALLBACK_POINTS: MapPoint[] = [
-  {
-    lat: 19.0607,
-    lng: 72.8362,
-    label: "Bandra West",
-  },
-  {
-    lat: 19.0728,
-    lng: 72.8826,
-    label: "Bandra-Kurla Complex",
-  },
-  {
-    lat: 19.1663,
-    lng: 72.8566,
-    label: "Goregaon East",
-  },
-  {
-    lat: 19.1176,
-    lng: 72.906,
-    label: "Powai",
-  },
-  {
-    lat: 19.1364,
-    lng: 72.8277,
-    label: "Andheri West",
-  },
-];
-
 /* -------------------------------------------------- */
 /* MAP HELPERS */
 /* -------------------------------------------------- */
 
-const getMapPoint = (neighborhood: string, index: number): MapPoint => {
-  return (
-    NEIGHBORHOOD_COORDS[neighborhood] ||
-    FALLBACK_POINTS[index % FALLBACK_POINTS.length]
-  );
-};
+/** A donation's pin, or null when the donor gave no coordinates. */
+const getMapPoint = (item: FoodSurplusItem): MapPoint | null =>
+  item.location
+    ? { lat: item.location.lat, lng: item.location.lng, label: item.location.neighborhood }
+    : null;
 
 const getPriorityColor = (priority: string): string => {
   switch (priority) {
@@ -173,8 +89,18 @@ const MapRecenter: React.FC<{
 /* -------------------------------------------------- */
 
 export const DispatchCommandPage: React.FC = () => {
-  const { surplusList, missionsList, dispatchMission, verifyMissionDelivery } =
+  const { surplusList, missionsList, dispatchMission, updateMissionStatus, ngoProfile, hasLoaded } =
     useRescueStore();
+
+  const [actionError, setActionError] = useState("");
+  const [updatingMissionId, setUpdatingMissionId] = useState<string | null>(null);
+
+  const ngoLat = ngoProfile?.latitude ?? null;
+  const ngoLng = ngoProfile?.longitude ?? null;
+  const ngoPosition = useMemo<[number, number] | null>(
+    () => (ngoLat !== null && ngoLng !== null ? [ngoLat, ngoLng] : null),
+    [ngoLat, ngoLng],
+  );
 
   const [selectedSurplusId, setSelectedSurplusId] = useState<string | null>(
     surplusList[0]?.id || null,
@@ -210,33 +136,48 @@ export const DispatchCommandPage: React.FC = () => {
   const totalKg = surplusList.reduce((sum, item) => sum + item.quantityKg, 0);
 
   const selectedMapPosition = useMemo<[number, number]>(() => {
-    if (!selectedSurplus) {
-      return MUMBAI_CENTER;
-    }
+    const point = selectedSurplus ? getMapPoint(selectedSurplus) : null;
+    if (point) return [point.lat, point.lng];
+    return ngoPosition ?? MUMBAI_CENTER;
+  }, [selectedSurplus, ngoPosition]);
 
-    const point = getMapPoint(
-      selectedSurplus.location.neighborhood,
-      Math.max(
-        0,
-        surplusList.findIndex((item) => item.id === selectedSurplus.id),
-      ),
-    );
-
-    return [point.lat, point.lng];
-  }, [selectedSurplus, surplusList]);
+  const selectedPoint = selectedSurplus ? getMapPoint(selectedSurplus) : null;
 
   const handleDispatch = async (id: string) => {
     setDispatchingId(id);
+    setActionError("");
 
     try {
-      await dispatchMission(id, "electric_van");
+      await dispatchMission(id);
+      setActiveTab("missions");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not claim this donation.");
     } finally {
       setDispatchingId(null);
     }
   };
 
+  const handleMissionStatus = async (id: string, status: DispatchStatus) => {
+    setUpdatingMissionId(id);
+    setActionError("");
+
+    try {
+      await updateMissionStatus(id, status);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not update the pickup.");
+    } finally {
+      setUpdatingMissionId(null);
+    }
+  };
+
   return (
     <div className="min-h-full bg-[#f6f8f4] text-[#102a43]">
+      {(hasLoaded && !ngoProfile) || (ngoProfile && ngoProfile.verification_status !== "VERIFIED") ? (
+        <div className="px-5 pt-5 lg:px-7">
+          {hasLoaded && !ngoProfile ? <NgoProfileSetup /> : <NgoPendingBanner />}
+        </div>
+      ) : null}
+
       {/* -------------------------------------------------- */}
       {/* PAGE HEADER */}
       {/* -------------------------------------------------- */}
@@ -498,8 +439,9 @@ export const DispatchCommandPage: React.FC = () => {
 
                 {/* SURPLUS MARKERS */}
 
-                {surplusList.map((item, index) => {
-                  const point = getMapPoint(item.location.neighborhood, index);
+                {surplusList.map((item) => {
+                  const point = getMapPoint(item);
+                  if (!point) return null;
 
                   const isSelected = selectedSurplusId === item.id;
 
@@ -523,7 +465,7 @@ export const DispatchCommandPage: React.FC = () => {
                         <Popup>
                           <div className="min-w-[210px]">
                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              {item.id}
+                              #{item.id} · {item.donorName}
                             </div>
 
                             <div className="mt-1 text-sm font-bold text-slate-900">
@@ -535,7 +477,7 @@ export const DispatchCommandPage: React.FC = () => {
                             </div>
 
                             <div className="mt-1 text-xs text-slate-500">
-                              {item.location.neighborhood}
+                              {point.label}
                             </div>
 
                             <div className="mt-2 text-xs font-semibold capitalize">
@@ -555,67 +497,42 @@ export const DispatchCommandPage: React.FC = () => {
                   );
                 })}
 
-                {/* RECEIVER NETWORK NODES */}
+                {/* THIS NGO */}
 
-                <CircleMarker
-                  center={[19.0473, 72.857]}
-                  radius={9}
-                  pathOptions={{
-                    color: "#6366f1",
-                    fillColor: "#6366f1",
-                    fillOpacity: 0.85,
-                    weight: 3,
-                  }}
-                >
-                  <Popup>
-                    <div className="min-w-[190px]">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">
-                        VERIFIED RECEIVER
-                      </div>
+                {ngoPosition && (
+                  <CircleMarker
+                    center={ngoPosition}
+                    radius={9}
+                    pathOptions={{
+                      color: "#6366f1",
+                      fillColor: "#6366f1",
+                      fillOpacity: 0.85,
+                      weight: 3,
+                    }}
+                  >
+                    <Popup>
+                      <div className="min-w-[190px]">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">
+                          YOUR NGO
+                        </div>
 
-                      <div className="mt-1 text-sm font-bold">
-                        Community Shelter
-                      </div>
+                        <div className="mt-1 text-sm font-bold">
+                          {ngoProfile?.organization_name}
+                        </div>
 
-                      <div className="mt-1 text-xs text-slate-500">
-                        Receiving capacity available
+                        <div className="mt-1 text-xs text-slate-500">
+                          {ngoProfile?.address}
+                        </div>
                       </div>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-
-                <CircleMarker
-                  center={[19.1176, 72.906]}
-                  radius={9}
-                  pathOptions={{
-                    color: "#6366f1",
-                    fillColor: "#6366f1",
-                    fillOpacity: 0.85,
-                    weight: 3,
-                  }}
-                >
-                  <Popup>
-                    <div className="min-w-[190px]">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">
-                        VERIFIED RECEIVER
-                      </div>
-
-                      <div className="mt-1 text-sm font-bold">
-                        Powai Community Hub
-                      </div>
-
-                      <div className="mt-1 text-xs text-slate-500">
-                        Receiving capacity available
-                      </div>
-                    </div>
-                  </Popup>
-                </CircleMarker>
+                    </Popup>
+                  </CircleMarker>
+                )}
 
                 {/* SELECTED ROUTE */}
 
-                {selectedSurplus && (
+                {selectedPoint && ngoPosition && (
                   <Polyline
-                    positions={[selectedMapPosition, [19.0473, 72.857]]}
+                    positions={[[selectedPoint.lat, selectedPoint.lng], ngoPosition]}
                     pathOptions={{
                       color: "#10b981",
                       weight: 4,
@@ -672,8 +589,8 @@ export const DispatchCommandPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                {surplusList.slice(0, 4).map((item, index) => {
-                  const point = getMapPoint(item.location.neighborhood, index);
+                {surplusList.slice(0, 4).map((item) => {
+                  const point = getMapPoint(item);
 
                   const isSelected = selectedSurplusId === item.id;
 
@@ -704,7 +621,7 @@ export const DispatchCommandPage: React.FC = () => {
 
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
-                          {point.label}
+                          {point?.label ?? "No location"}
                         </span>
                       </div>
                     </button>
@@ -772,17 +689,12 @@ export const DispatchCommandPage: React.FC = () => {
 
                         <span className="flex items-center gap-1.5">
                           <MapPin className="h-4 w-4 text-slate-400" />
-                          {selectedSurplus.location.neighborhood}
+                          {selectedSurplus.location?.neighborhood ?? "No location given"}
                         </span>
                       </div>
                     </div>
 
-                    {selectedSurplus.confidenceScore && (
-                      <ConfidenceScore
-                        score={selectedSurplus.confidenceScore}
-                        size="sm"
-                      />
-                    )}
+
                   </div>
                 </div>
 
@@ -967,6 +879,12 @@ export const DispatchCommandPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {actionError && (
+                    <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {actionError}
+                    </p>
+                  )}
+
                   {selectedSurplus.status === "available" && (
                     <button
                       onClick={() => handleDispatch(selectedSurplus.id)}
@@ -976,8 +894,8 @@ export const DispatchCommandPage: React.FC = () => {
                       <Truck className="h-4 w-4" />
 
                       {dispatchingId === selectedSurplus.id
-                        ? "Preparing recovery coordination..."
-                        : "Coordinate People-First Recovery"}
+                        ? "Claiming and assigning a volunteer..."
+                        : "Claim & dispatch nearest volunteer"}
 
                       <ArrowRight className="h-4 w-4" />
                     </button>
@@ -1110,7 +1028,7 @@ export const DispatchCommandPage: React.FC = () => {
 
                           <span className="flex items-center gap-1">
                             <MapPin className="h-3.5 w-3.5" />
-                            {item.location.neighborhood}
+                            {item.location?.neighborhood ?? "No location"}
                           </span>
                         </div>
 
@@ -1134,46 +1052,58 @@ export const DispatchCommandPage: React.FC = () => {
                         </div>
 
                         <div className="mt-3 text-sm font-bold text-[#102a43]">
-                          {mission.driverName}
+                          {mission.surplusItem?.foodName ?? "Donation"}
                         </div>
 
                         <div className="mt-1 text-xs text-slate-500">
-                          {mission.vehiclePlate}
+                          {mission.driverName}
+                          {mission.driverPhone ? ` · ${mission.driverPhone}` : ""}
                         </div>
 
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <div className="rounded-lg bg-slate-50 p-2.5">
                             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500">
                               <Clock className="h-3 w-3" />
-                              ETA
+                              Time left
                             </div>
 
                             <div className="mt-1 text-sm font-bold text-[#102a43]">
-                              {mission.etaMinutes} min
+                              {mission.surplusItem
+                                ? `${Math.max(0, mission.surplusItem.hoursLeft).toFixed(1)} h`
+                                : "—"}
                             </div>
                           </div>
 
                           <div className="rounded-lg bg-slate-50 p-2.5">
                             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500">
-                              <Thermometer className="h-3 w-3" />
-                              Temp
+                              <MapPin className="h-3 w-3" />
+                              Route
                             </div>
 
                             <div className="mt-1 text-sm font-bold text-[#102a43]">
-                              {mission.currentTempCelsius}°C
+                              {mission.distanceKm !== null ? `${mission.distanceKm} km` : "—"}
                             </div>
                           </div>
                         </div>
 
-                        {mission.status === "in_transit" && (
+                        {mission.dispatchStatus === "PICKED_UP" && (
                           <button
-                            onClick={() =>
-                              verifyMissionDelivery(mission.id, mission.otpCode)
-                            }
-                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-[11px] font-bold text-indigo-700 transition hover:bg-indigo-100"
+                            onClick={() => handleMissionStatus(mission.id, "DELIVERED")}
+                            disabled={updatingMissionId === mission.id}
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-[11px] font-bold text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            Verify receiver handover
+                            Confirm we received it
+                          </button>
+                        )}
+
+                        {["PENDING", "ASSIGNED"].includes(mission.dispatchStatus) && (
+                          <button
+                            onClick={() => handleMissionStatus(mission.id, "CANCELLED")}
+                            disabled={updatingMissionId === mission.id}
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-[11px] font-bold text-slate-600 transition hover:border-red-200 hover:text-red-600 disabled:opacity-50"
+                          >
+                            Cancel pickup
                           </button>
                         )}
                       </div>
@@ -1184,7 +1114,7 @@ export const DispatchCommandPage: React.FC = () => {
                     <PackageCheck className="mx-auto h-8 w-8 text-slate-300" />
 
                     <p className="mt-3 text-sm font-semibold text-slate-500">
-                      No active surplus entries
+                      {hasLoaded ? "No donations waiting right now" : "Loading…"}
                     </p>
                   </div>
                 )}
@@ -1194,7 +1124,7 @@ export const DispatchCommandPage: React.FC = () => {
                     <Truck className="mx-auto h-8 w-8 text-slate-300" />
 
                     <p className="mt-3 text-sm font-semibold text-slate-500">
-                      No active recovery missions
+                      No pickups yet
                     </p>
                   </div>
                 )}

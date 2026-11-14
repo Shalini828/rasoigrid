@@ -159,13 +159,39 @@ export const useAuthStore = create<AuthState>((set) => ({
        Create authenticated user
     ---------------------------------------- */
 
-    const user: User = {
+    let user: User = {
       id: Number(payload.sub),
       name: '',
       email,
       phone: '',
       role: payload.role,
     };
+
+    /* ---------------------------------------
+       Load account details (name, phone)
+    ---------------------------------------- */
+
+    try {
+      const meResponse = await fetch(
+        `${API_BASE_URL}/api/auth/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (meResponse.ok) {
+        const me = await meResponse.json();
+        user = {
+          ...user,
+          name: me.name ?? '',
+          phone: me.phone ?? '',
+        };
+      }
+    } catch {
+      // Name and phone are for display only; login still succeeds.
+    }
 
     /* ---------------------------------------
        Persist authentication

@@ -168,3 +168,23 @@ def verify_ngo(
     db.refresh(ngo)
 
     return ngo
+
+
+@router.get("/all", response_model=list[NGOResponse])
+def get_all_ngos(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List every NGO, including those waiting for verification."""
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=403,
+            detail="Only administrators can view all NGOs"
+        )
+
+    return (
+        db.query(NGOProfile)
+        .order_by(NGOProfile.id.desc())
+        .all()
+    )
+

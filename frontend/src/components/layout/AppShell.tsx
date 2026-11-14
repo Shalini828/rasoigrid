@@ -88,6 +88,7 @@ export const AppShell: React.FC = () => {
   ===================================================== */
 
   const handleLogout = () => {
+    useRescueStore.getState().reset();
     logout();
     navigate("/login", {
       replace: true,
