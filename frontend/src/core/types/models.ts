@@ -63,6 +63,11 @@ export interface FoodSurplusItem {
   recommendedAction: string | null;
   /** Distance to the logged-in NGO, when the backend worked it out. */
   distanceToNgoKm: number | null;
+  /** Donor's food-safety declaration; null if none was given. */
+  safetyChecklist: {
+    confirmed: boolean;
+    allergens: string | null;
+  } | null;
   createdAt: string | null;
 }
 
@@ -81,6 +86,11 @@ export interface RescueMission {
   receiverLocation: GeoLocation | null;
   distanceKm: number | null;
   status: RescueStatus;
+  /** Volunteer must enter the NGO's code to mark it delivered. */
+  requiresHandoverCode: boolean;
+  handoverConfirmed: boolean;
+  /** Only filled in for the receiving NGO. */
+  handoverCode: string | null;
 }
 
 export interface ForecastPrediction {

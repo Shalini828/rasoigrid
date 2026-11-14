@@ -41,6 +41,25 @@ const STATUS_LABEL: Record<string, string> = {
   EXPIRED: 'Expired before pickup',
 };
 
+const SAFETY_ITEMS = [
+  {
+    key: 'hygienic_preparation',
+    label: 'Prepared and handled hygienically',
+  },
+  {
+    key: 'safe_temperature',
+    label: 'Kept hot (above 60 °C) or chilled (below 5 °C) since cooking',
+  },
+  {
+    key: 'covered_and_labelled',
+    label: 'Covered, and labelled with what it is',
+  },
+  {
+    key: 'no_spoilage_signs',
+    label: 'No smell, mould, sliminess or other sign of spoiling',
+  },
+] as const;
+
 export const DonorPortalPage: React.FC = () => {
   const { logSurplus, surplusList } = useRescueStore();
 
@@ -67,6 +86,11 @@ export const DonorPortalPage: React.FC = () => {
 
   const [packagingAvailable, setPackagingAvailable] =
     useState(false);
+
+  // Food-safety declaration: every item must be ticked to list food.
+  const [safetyChecks, setSafetyChecks] = useState<Record<string, boolean>>({});
+  const [allergens, setAllergens] = useState('');
+  const allSafetyChecked = SAFETY_ITEMS.every((item) => safetyChecks[item.key]);
 
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
@@ -135,6 +159,11 @@ export const DonorPortalPage: React.FC = () => {
       return;
     }
 
+    if (!allSafetyChecked) {
+      setError('Confirm every food-safety item before listing food for people.');
+      return;
+    }
+
     const cooked = new Date(cookedAt);
     const safe = new Date(safeUntil);
 
@@ -156,6 +185,8 @@ export const DonorPortalPage: React.FC = () => {
         packagingAvailable,
         latitude: lat,
         longitude: lng,
+        safetyConfirmed: allSafetyChecked,
+        allergens,
       });
 
       setShowSuccessModal(true);
@@ -721,26 +752,64 @@ export const DonorPortalPage: React.FC = () => {
 
                   </div>
 
-                  {/* Safety note */}
-                  <div className="flex gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  {/* Food-safety checklist */}
+                  <fieldset className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
 
-                    <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <legend className="sr-only">Food-safety checklist</legend>
 
-                    <div>
+                    <div className="flex gap-3">
 
-                      <p className="text-sm font-semibold text-amber-900">
-                        Food handling note
-                      </p>
+                      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
 
-                      <p className="mt-1 text-xs leading-5 text-amber-800/80">
-                        This information supports coordination and
-                        prioritization. Final food-safety decisions remain
-                        with authorized personnel and receiving organizations.
-                      </p>
+                      <div className="flex-1">
+
+                        <p className="text-sm font-semibold text-amber-900">
+                          Food-safety checklist
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-amber-800/80">
+                          Confirm each item. The NGO sees your answers and makes
+                          the final decision before serving the food.
+                        </p>
+
+                        <div className="mt-3 space-y-2">
+                          {SAFETY_ITEMS.map((item) => (
+                            <label
+                              key={item.key}
+                              className="flex items-start gap-3 rounded-xl bg-white/70 px-3 py-2 text-sm text-slate-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={!!safetyChecks[item.key]}
+                                onChange={(e) =>
+                                  setSafetyChecks((checks) => ({
+                                    ...checks,
+                                    [item.key]: e.target.checked,
+                                  }))
+                                }
+                                className="mt-0.5 h-4 w-4 accent-emerald-600"
+                              />
+                              {item.label}
+                            </label>
+                          ))}
+                        </div>
+
+                        <label className="mt-3 block text-xs font-semibold text-amber-900">
+                          Allergens (optional)
+                          <input
+                            value={allergens}
+                            onChange={(e) => setAllergens(e.target.value)}
+                            maxLength={200}
+                            placeholder="e.g. nuts, dairy, gluten"
+                            className="mt-1 w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm font-normal text-slate-800 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                          />
+                        </label>
+
+                      </div>
 
                     </div>
 
-                  </div>
+                  </fieldset>
 
                   {error && (
                     <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -753,7 +822,8 @@ export const DonorPortalPage: React.FC = () => {
                     type="submit"
                     disabled={
                       isSubmitting ||
-                      !foodName.trim()
+                      !foodName.trim() ||
+                      !allSafetyChecked
                     }
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
@@ -1042,6 +1112,8 @@ export const DonorPortalPage: React.FC = () => {
               onClick={() => {
                 setShowSuccessModal(false);
                 setFoodName('');
+                setSafetyChecks({});
+                setAllergens('');
               }}
               className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
             >

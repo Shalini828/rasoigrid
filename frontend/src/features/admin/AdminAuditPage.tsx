@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FileCheck2,
   ShieldCheck,
@@ -11,12 +11,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-type AuditType =
-  | "VERIFICATION"
-  | "HANDOVER"
-  | "DISPATCH"
-  | "RECOVERY"
-  | "ACCESS";
+import { api } from "../../core/api/client";
+import { parseApiDate } from "../../core/api/mappers";
+import type { AdminAuditDTO } from "../../core/api/types";
+
+type AuditType = "DONATION" | "CLAIM" | "HANDOVER" | "CLOSED";
 
 interface AuditRecord {
   id: string;
@@ -25,64 +24,85 @@ interface AuditRecord {
   actor: string;
   actorRole: string;
   reference: string;
+  details: string;
   timestamp: string;
   status: "COMPLETED" | "REVIEW";
 }
 
-const auditRecords: AuditRecord[] = [
-  {
-    id: "AUD-1048",
-    type: "HANDOVER",
-    action: "Food handover verified",
-    actor: "Volunteer V-204",
-    actorRole: "VOLUNTEER",
-    reference: "Mission MIS-7821",
-    timestamp: "15 Sep 2026 · 10:18 AM",
-    status: "COMPLETED",
-  },
-  {
-    id: "AUD-1047",
-    type: "VERIFICATION",
-    action: "NGO verification completed",
-    actor: "System Administrator",
-    actorRole: "ADMIN",
-    reference: "NGO-MH-20481",
-    timestamp: "15 Sep 2026 · 09:42 AM",
-    status: "COMPLETED",
-  },
-  {
-    id: "AUD-1046",
-    type: "DISPATCH",
-    action: "Rescue mission dispatched",
-    actor: "Mumbai Rescue Network",
-    actorRole: "NGO",
-    reference: "MIS-7821",
-    timestamp: "15 Sep 2026 · 09:15 AM",
-    status: "COMPLETED",
-  },
-  {
-    id: "AUD-1045",
-    type: "RECOVERY",
-    action: "Organic recovery pathway selected",
-    actor: "Recovery Coordinator",
-    actorRole: "NGO",
-    reference: "REC-4492",
-    timestamp: "15 Sep 2026 · 08:56 AM",
-    status: "COMPLETED",
-  },
-  {
-    id: "AUD-1044",
-    type: "ACCESS",
-    action: "Role access change requested",
-    actor: "System Administrator",
-    actorRole: "ADMIN",
-    reference: "USR-309",
-    timestamp: "14 Sep 2026 · 06:31 PM",
-    status: "REVIEW",
-  },
-];
+/** Backend audit actions, grouped for the filter and labelled for people. */
+const ACTIONS: Record<string, { type: AuditType; label: string; review?: boolean }> = {
+  DONATED: { type: "DONATION", label: "Food listed by donor" },
+  REQUESTED: { type: "CLAIM", label: "NGO asked for the food" },
+  ACCEPTED: { type: "CLAIM", label: "NGO claimed the food" },
+  MATCHED: { type: "CLAIM", label: "Donation matched" },
+  DISPATCHED: { type: "CLAIM", label: "Volunteer pickup created" },
+  PICKED_UP: { type: "HANDOVER", label: "Volunteer picked up the food" },
+  DELIVERED: { type: "HANDOVER", label: "Food delivered to the NGO" },
+  RECOVERY: { type: "HANDOVER", label: "Sent to organic recovery" },
+  CANCELLED: { type: "CLOSED", label: "Cancelled", review: true },
+  EXPIRED: { type: "CLOSED", label: "Expired before anyone claimed it", review: true },
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  DONOR: "Donor",
+  NGO: "NGO",
+  VOLUNTEER: "Volunteer",
+  ADMIN: "Admin",
+  SYSTEM: "System",
+};
+
+const toAuditRecord = (e: AdminAuditDTO): AuditRecord => {
+  const info = ACTIONS[e.action] ?? { type: "CLAIM" as AuditType, label: e.action };
+  return {
+    id: `AUD-${e.id}`,
+    type: info.type,
+    action: info.label,
+    actor:
+      e.actor_name ??
+      (e.actor_type === "SYSTEM" ? "RasoiGrid" : `${ROLE_LABEL[e.actor_type] ?? e.actor_type} #${e.actor_id ?? "?"}`),
+    actorRole: ROLE_LABEL[e.actor_type] ?? e.actor_type,
+    reference: `Donation #${e.donation_id}${e.food_name ? ` · ${e.food_name}` : ""}`,
+    details: e.details ?? "",
+    timestamp: parseApiDate(e.timestamp).toLocaleString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    status: info.review ? "REVIEW" : "COMPLETED",
+  };
+};
 
 export const AdminAuditPage: React.FC = () => {
+  const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAdminAudit(500)
+      .then((rows) => {
+        if (!cancelled) setAuditRecords(rows.map(toAuditRecord));
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Could not load the audit trail.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handoverCount = auditRecords.filter((r) => r.action === ACTIONS.DELIVERED.label).length;
+  const reviewCount = auditRecords.filter((r) => r.status === "REVIEW").length;
+  const donationCount = new Set(auditRecords.map((r) => r.reference.split(" · ")[0])).size;
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"ALL" | AuditType>("ALL");
 
@@ -90,7 +110,8 @@ export const AdminAuditPage: React.FC = () => {
     const matchesSearch =
       record.action.toLowerCase().includes(search.toLowerCase()) ||
       record.actor.toLowerCase().includes(search.toLowerCase()) ||
-      record.reference.toLowerCase().includes(search.toLowerCase());
+      record.reference.toLowerCase().includes(search.toLowerCase()) ||
+      record.details.toLowerCase().includes(search.toLowerCase());
 
     const matchesFilter =
       filter === "ALL" || record.type === filter;
@@ -140,29 +161,29 @@ export const AdminAuditPage: React.FC = () => {
           <Metric
             icon={<FileCheck2 className="h-5 w-5 text-emerald-600" />}
             label="Recorded Events"
-            value="1,284"
-            detail="Digital activity records"
+            value={auditRecords.length.toLocaleString("en-IN")}
+            detail="Most recent 500 shown"
           />
 
           <Metric
             icon={<UserCheck className="h-5 w-5 text-blue-600" />}
-            label="Verified Handovers"
-            value="426"
-            detail="Human-confirmed transfers"
+            label="Deliveries"
+            value={handoverCount.toLocaleString("en-IN")}
+            detail="Food handed to an NGO"
           />
 
           <Metric
             icon={<ShieldCheck className="h-5 w-5 text-violet-600" />}
-            label="Compliance Reviews"
-            value="38"
-            detail="Completed this cycle"
+            label="Donations Traced"
+            value={donationCount.toLocaleString("en-IN")}
+            detail="With at least one event"
           />
 
           <Metric
             icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
-            label="Needs Review"
-            value="3"
-            detail="Administrative attention"
+            label="Cancelled or Expired"
+            value={reviewCount.toLocaleString("en-IN")}
+            detail="Food that did not reach people"
           />
         </div>
 
@@ -205,11 +226,10 @@ export const AdminAuditPage: React.FC = () => {
               {(
                 [
                   "ALL",
-                  "VERIFICATION",
+                  "DONATION",
+                  "CLAIM",
                   "HANDOVER",
-                  "DISPATCH",
-                  "RECOVERY",
-                  "ACCESS",
+                  "CLOSED",
                 ] as const
               ).map((item) => (
                 <button
@@ -257,11 +277,20 @@ export const AdminAuditPage: React.FC = () => {
                 <FileCheck2 className="mx-auto h-10 w-10 text-slate-300" />
 
                 <p className="mt-3 font-semibold text-slate-700">
-                  No audit events found
+                  {loadError
+                    ? "Could not load the audit trail"
+                    : isLoading
+                      ? "Loading audit events…"
+                      : auditRecords.length === 0
+                        ? "No events yet"
+                        : "No audit events found"}
                 </p>
 
                 <p className="mt-1 text-sm text-slate-400">
-                  Try changing your search or filter.
+                  {loadError ||
+                    (auditRecords.length === 0
+                      ? "Events appear as donors list food and NGOs claim it."
+                      : "Try changing your search or filter.")}
                 </p>
               </div>
             )}
@@ -272,20 +301,20 @@ export const AdminAuditPage: React.FC = () => {
         <div className="grid gap-4 md:grid-cols-3">
           <ControlCard
             icon={<UserCheck className="h-5 w-5" />}
-            title="Identity Verification"
-            description="Track authorized users and role-based access decisions."
+            title="Who Did It"
+            description="Every event records the account that acted, or RasoiGrid itself for automatic expiry."
           />
 
           <ControlCard
             icon={<HeartHandshake className="h-5 w-5" />}
             title="Handover Records"
-            description="Maintain a traceable record of verified food transfers."
+            description="Deliveries confirmed with the NGO's handover code say so in their details."
           />
 
           <ControlCard
             icon={<Recycle className="h-5 w-5" />}
-            title="Recovery Records"
-            description="Track non-edible organic material through recovery pathways."
+            title="Food That Was Lost"
+            description="Cancelled and expired donations are flagged so patterns can be spotted."
           />
         </div>
 
@@ -308,11 +337,6 @@ export const AdminAuditPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Demo notice */}
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-400">
-          Frontend demonstration data — audit records and compliance
-          controls will connect to the backend audit service later.
-        </div>
       </div>
     </div>
   );
@@ -360,20 +384,17 @@ interface AuditRowProps {
 
 const AuditRow: React.FC<AuditRowProps> = ({ record }) => {
   const iconMap: Record<AuditType, React.ReactNode> = {
-    VERIFICATION: (
-      <UserCheck className="h-5 w-5 text-emerald-600" />
+    DONATION: (
+      <Recycle className="h-5 w-5 text-emerald-600" />
+    ),
+    CLAIM: (
+      <Truck className="h-5 w-5 text-violet-600" />
     ),
     HANDOVER: (
       <HeartHandshake className="h-5 w-5 text-blue-600" />
     ),
-    DISPATCH: (
-      <Truck className="h-5 w-5 text-violet-600" />
-    ),
-    RECOVERY: (
-      <Recycle className="h-5 w-5 text-amber-600" />
-    ),
-    ACCESS: (
-      <ShieldCheck className="h-5 w-5 text-slate-600" />
+    CLOSED: (
+      <AlertTriangle className="h-5 w-5 text-amber-600" />
     ),
   };
 
@@ -398,7 +419,7 @@ const AuditRow: React.FC<AuditRowProps> = ({ record }) => {
                     : "bg-amber-100 text-amber-700"
                 }`}
               >
-                {record.status}
+                {record.status === "COMPLETED" ? "Done" : "Did not reach people"}
               </span>
             </div>
 
@@ -425,18 +446,15 @@ const AuditRow: React.FC<AuditRowProps> = ({ record }) => {
               </span>
             </div>
 
+            {record.details && (
+              <p className="mt-2 text-xs text-slate-500">{record.details}</p>
+            )}
+
             <p className="mt-2 text-xs text-slate-400">
               {record.id} · {record.timestamp}
             </p>
           </div>
         </div>
-
-        <button
-          type="button"
-          className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-        >
-          View Record
-        </button>
       </div>
     </div>
   );

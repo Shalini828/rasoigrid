@@ -21,6 +21,9 @@ import {
   toSurplusItem,
 } from "./mappers";
 import type {
+  AdminAuditDTO,
+  AdminOverviewDTO,
+  AdminUserDTO,
   DispatchDTO,
   DispatchStatus,
   DonationDTO,
@@ -44,6 +47,9 @@ export interface NewDonation {
   packagingAvailable: boolean;
   latitude: number | null;
   longitude: number | null;
+  /** Donor confirmed every food-safety item (required by the form). */
+  safetyConfirmed: boolean;
+  allergens: string;
 }
 
 const toDonationInput = (d: NewDonation): DonationInput => ({
@@ -58,6 +64,15 @@ const toDonationInput = (d: NewDonation): DonationInput => ({
   pickup_required: true,
   latitude: d.latitude,
   longitude: d.longitude,
+  safety_checklist: d.safetyConfirmed
+    ? {
+        hygienic_preparation: true,
+        safe_temperature: true,
+        covered_and_labelled: true,
+        no_spoilage_signs: true,
+        allergens: d.allergens.trim() || null,
+      }
+    : null,
 });
 
 const json = (body: unknown): RequestInit => ({ body: JSON.stringify(body) });
@@ -145,6 +160,18 @@ class ApiService {
     return apiRequest<NGODTO>(`/api/ngos/${id}/verify`, { method: "PATCH" });
   }
 
+  async getAdminUsers(): Promise<AdminUserDTO[]> {
+    return apiRequest<AdminUserDTO[]>("/api/admin/users");
+  }
+
+  async getAdminAudit(limit = 200): Promise<AdminAuditDTO[]> {
+    return apiRequest<AdminAuditDTO[]>(`/api/admin/audit?limit=${limit}`);
+  }
+
+  async getAdminOverview(): Promise<AdminOverviewDTO> {
+    return apiRequest<AdminOverviewDTO>("/api/admin/overview");
+  }
+
   /* ---------------- Volunteers ---------------- */
 
   async getAvailableVolunteers(donationId?: number): Promise<VolunteerDTO[]> {
@@ -207,9 +234,16 @@ class ApiService {
     return toMission(row);
   }
 
-  async updateDispatchStatus(id: number, status: DispatchStatus): Promise<RescueMission> {
+  /** `code` is the NGO's handover code, needed when a volunteer delivers. */
+  async updateDispatchStatus(
+    id: number,
+    status: DispatchStatus,
+    code?: string,
+  ): Promise<RescueMission> {
+    const params = new URLSearchParams({ status });
+    if (code) params.set("code", code);
     const row = await apiRequest<DispatchDTO>(
-      `/api/dispatches/${id}/status?status=${status}`,
+      `/api/dispatches/${id}/status?${params.toString()}`,
       { method: "PATCH" },
     );
     return toMission(row);
@@ -217,8 +251,14 @@ class ApiService {
 
   /* ---------------- Impact ---------------- */
 
+  /** Whole-network totals. */
   async getImpactMetrics(): Promise<ImpactMetrics> {
     return toImpactMetrics(await apiRequest<ImpactDTO>("/api/impact/"));
+  }
+
+  /** The logged-in user's own impact (whole network for admins). */
+  async getMyImpact(): Promise<ImpactMetrics> {
+    return toImpactMetrics(await apiRequest<ImpactDTO>("/api/impact/me"));
   }
 
   /* -----------------------------------------------------------

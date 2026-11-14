@@ -19,9 +19,12 @@ from app.routes.rescue_requests import router as rescue_requests_router
 from app.models.dispatch import Dispatch
 from app.models.impact import ImpactRecord
 from app.models.audit import AuditEvent
+from app.models.delivery_code import DeliveryCode
+from app.models.safety_check import DonationSafetyCheck
 from app.routes.dispatch import router as dispatch_router
 from app.routes.prediction import router as prediction_router
 from app.routes.impact import router as impact_router
+from app.routes.admin import router as admin_router
 
 
 app = FastAPI(title="RasoiGrid API")
@@ -47,6 +50,7 @@ app.include_router(rescue_requests_router)
 app.include_router(dispatch_router)
 app.include_router(prediction_router)
 app.include_router(impact_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

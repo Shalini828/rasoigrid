@@ -23,5 +23,10 @@ class DispatchResponse(DispatchCreate):
     ngo_name: str | None = None
     ngo_address: str | None = None
 
+    requires_handover_code: bool = False
+    handover_confirmed: bool = False
+    # Only sent to the receiving NGO, never to the volunteer.
+    handover_code: str | None = None
+
     class Config:
         from_attributes = True

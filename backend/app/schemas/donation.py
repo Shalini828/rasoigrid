@@ -1,5 +1,39 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from datetime import datetime, timezone
+
+
+class SafetyChecklist(BaseModel):
+    """
+    The donor's food-safety declaration. Every item must be confirmed
+    for food to be listed for people. This is a declaration, not an
+    inspection; the receiving NGO makes the final decision.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    hygienic_preparation: bool
+    safe_temperature: bool
+    covered_and_labelled: bool
+    no_spoilage_signs: bool
+    allergens: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def all_confirmed(self):
+        unconfirmed = [
+            name for name in (
+                "hygienic_preparation",
+                "safe_temperature",
+                "covered_and_labelled",
+                "no_spoilage_signs",
+            )
+            if not getattr(self, name)
+        ]
+        if unconfirmed:
+            raise ValueError(
+                "Every food-safety item must be confirmed before food "
+                "can be listed for people: " + ", ".join(unconfirmed)
+            )
+        return self
 
 
 class DonationCreate(BaseModel):
@@ -17,6 +51,9 @@ class DonationCreate(BaseModel):
 
     latitude: float | None = None
     longitude: float | None = None
+
+    # Optional for API clients; the web app always sends it.
+    safety_checklist: SafetyChecklist | None = None
 
     @model_validator(mode="after")
     def validate_dates(self):

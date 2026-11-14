@@ -54,11 +54,18 @@ export const LogisticsFleetPage: React.FC = () => {
     missionsList.find((m) => m.dispatchStatus === "ASSIGNED");
   const activeStep = activeMission ? STEP_INDEX[activeMission.dispatchStatus] ?? 0 : -1;
 
-  const advance = async (mission: RescueMission, status: DispatchStatus) => {
+  // Handover codes typed by the volunteer, per mission.
+  const [codes, setCodes] = useState<Record<string, string>>({});
+
+  const advance = async (
+    mission: RescueMission,
+    status: DispatchStatus,
+    code?: string,
+  ) => {
     setUpdatingId(mission.id);
     setActionError("");
     try {
-      await updateMissionStatus(mission.id, status);
+      await updateMissionStatus(mission.id, status, code);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not update the pickup.");
     } finally {
@@ -369,15 +376,39 @@ export const LogisticsFleetPage: React.FC = () => {
                                 </p>
                               </div>
                               <p className="mt-1 text-[10px] leading-5 text-indigo-700">
-                                Give the food to an authorized person at the NGO,
-                                then confirm delivery.
+                                {mission.requiresHandoverCode
+                                  ? "Give the food to an authorized person at the NGO and ask them for their 6-digit handover code."
+                                  : "Give the food to an authorized person at the NGO, then confirm delivery."}
                               </p>
                             </div>
 
+                            {mission.requiresHandoverCode && (
+                              <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                NGO handover code
+                                <input
+                                  value={codes[mission.id] ?? ""}
+                                  onChange={(e) =>
+                                    setCodes((all) => ({
+                                      ...all,
+                                      [mission.id]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                                    }))
+                                  }
+                                  inputMode="numeric"
+                                  autoComplete="one-time-code"
+                                  placeholder="6 digits"
+                                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-center font-mono text-base tracking-[0.4em] text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                />
+                              </label>
+                            )}
+
                             <button
                               type="button"
-                              onClick={() => advance(mission, "DELIVERED")}
-                              disabled={busy}
+                              onClick={() => advance(mission, "DELIVERED", codes[mission.id])}
+                              disabled={
+                                busy ||
+                                (mission.requiresHandoverCode &&
+                                  (codes[mission.id] ?? "").length !== 6)
+                              }
                               className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 disabled:opacity-60"
                             >
                               <ShieldCheck className="h-4 w-4" />

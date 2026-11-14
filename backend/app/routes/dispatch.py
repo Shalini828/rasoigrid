@@ -1,3 +1,6 @@
+import secrets
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -12,7 +15,24 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.donation import Donation
 from app.models.impact import ImpactRecord
+from app.models.delivery_code import DeliveryCode
 from app.services.audit import create_audit_event
+
+
+MAX_HANDOVER_ATTEMPTS = 5
+
+
+def _new_handover_code() -> str:
+    """Six-digit one-time code, e.g. '048213'."""
+    return f"{secrets.randbelow(10**6):06d}"
+
+
+def _with_handover_code(dispatch):
+    """Expose the handover code on a dispatch for the receiving NGO."""
+    dispatch.handover_code = (
+        dispatch.delivery_code.code if dispatch.delivery_code else None
+    )
+    return dispatch
 
 
 router = APIRouter(
@@ -137,6 +157,13 @@ def create_dispatch(
     )
 
     db.add(new_dispatch)
+    db.flush()
+
+    # The NGO gives this code to the volunteer at handover.
+    db.add(DeliveryCode(
+        dispatch_id=new_dispatch.id,
+        code=_new_handover_code()
+    ))
 
     # 7. Mark assigned volunteer as unavailable
     if volunteer:
@@ -155,7 +182,7 @@ def create_dispatch(
 
     db.refresh(new_dispatch)
 
-    return new_dispatch
+    return _with_handover_code(new_dispatch)
 
 @router.get("/my", response_model=list[DispatchResponse])
 def get_my_dispatches(
@@ -197,7 +224,7 @@ def get_my_dispatches(
         .all()
     )
 
-    return dispatches
+    return [_with_handover_code(d) for d in dispatches]
 
 
 @router.get("/assigned", response_model=list[DispatchResponse])
@@ -239,6 +266,7 @@ def get_assigned_dispatches(
 def update_dispatch_status(
     dispatch_id: int,
     status: str,
+    code: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -335,6 +363,37 @@ def update_dispatch_status(
             detail="You are not allowed to set this dispatch status"
         )
 
+    # A volunteer can only mark food delivered with the NGO's code.
+    code_record = dispatch.delivery_code
+
+    if (
+        current_user.role == "VOLUNTEER"
+        and status == "DELIVERED"
+        and code_record is not None
+        and code_record.confirmed_at is None
+    ):
+        if code_record.failed_attempts >= MAX_HANDOVER_ATTEMPTS:
+            raise HTTPException(
+                status_code=423,
+                detail=(
+                    "Too many wrong codes. Ask the NGO to confirm "
+                    "the delivery from their side."
+                )
+            )
+
+        if not code or not secrets.compare_digest(
+            code.strip(), code_record.code
+        ):
+            code_record.failed_attempts += 1
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail="Handover code is wrong. Ask the NGO for their code."
+            )
+
+    if status == "DELIVERED" and code_record is not None:
+        code_record.confirmed_at = datetime.now(timezone.utc)
+
     dispatch.status = status
 
     # Keep the donation's status in step with its dispatch
@@ -415,10 +474,22 @@ def update_dispatch_status(
             action=status,
             actor_type=current_user.role,
             actor_id=current_user.id,
-            details=f"Dispatch {dispatch.id} marked {status}",
+            details=(
+                f"Dispatch {dispatch.id} marked {status}"
+                + (
+                    " with the NGO's handover code"
+                    if status == "DELIVERED"
+                    and current_user.role == "VOLUNTEER"
+                    and code_record is not None
+                    else ""
+                )
+            ),
             db=db
         )
 
     db.refresh(dispatch)
+
+    if current_user.role == "NGO":
+        return _with_handover_code(dispatch)
 
     return dispatch
