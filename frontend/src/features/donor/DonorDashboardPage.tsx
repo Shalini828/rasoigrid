@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useRescueStore } from "../../stores/useRescueStore";
+import { KG_PER_MEAL } from "../../core/api/mappers";
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,33 +17,39 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 
+const STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: "Waiting for NGO",
+  CLAIMED: "Claimed",
+  IN_TRANSIT: "Picked up",
+  DELIVERED: "Delivered",
+  CANCELLED: "Cancelled",
+};
+
+const formatWhen = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("en-IN", {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
 export const DonorDashboardPage: React.FC = () => {
-  const recentDonations = [
-    {
-      id: "RG-1042",
-      food: "Cooked rice & vegetable curry",
-      quantity: "18 kg",
-      destination: "Community meal network",
-      status: "Matched",
-      time: "Today, 10:40 AM",
-    },
-    {
-      id: "RG-1038",
-      food: "Fresh bread & bakery items",
-      quantity: "9 kg",
-      destination: "Local food rescue partner",
-      status: "Collected",
-      time: "Yesterday, 6:15 PM",
-    },
-    {
-      id: "RG-1031",
-      food: "Prepared lunch surplus",
-      quantity: "24 kg",
-      destination: "Circular recovery",
-      status: "Recovered",
-      time: "12 Sep, 2:20 PM",
-    },
-  ];
+  const { surplusList, isLoading, error } = useRescueStore();
+
+  const active = surplusList.filter((d) => d.backendStatus !== "CANCELLED");
+  const delivered = active.filter((d) => d.backendStatus === "DELIVERED");
+  const inProgress = active.filter((d) =>
+    ["CLAIMED", "IN_TRANSIT"].includes(d.backendStatus),
+  );
+
+  const totalKg = active.reduce((sum, d) => sum + d.quantityKg, 0);
+  const deliveredKg = delivered.reduce((sum, d) => sum + d.quantityKg, 0);
+  const deliveredMeals = Math.round(deliveredKg / KG_PER_MEAL);
+  const deliveredShare = totalKg > 0 ? Math.round((deliveredKg / totalKg) * 100) : 0;
+
+  const recentDonations = surplusList.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -126,12 +134,12 @@ export const DonorDashboardPage: React.FC = () => {
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  286 kg
+                  {totalKg.toLocaleString()} kg
                 </p>
 
                 <div className="mt-2 flex items-center gap-1 text-xs font-medium text-emerald-600">
                   <TrendingUp className="h-3.5 w-3.5" />
-                  +18% this month
+                  {active.length} donation{active.length === 1 ? "" : "s"}
                 </div>
               </div>
 
@@ -147,15 +155,15 @@ export const DonorDashboardPage: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Food Recovered
+                  Food Delivered
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  241 kg
+                  {deliveredKg.toLocaleString()} kg
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  84% of logged surplus
+                  {deliveredShare}% of logged surplus
                 </p>
               </div>
 
@@ -171,15 +179,15 @@ export const DonorDashboardPage: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  People Potentially Served
+                  Meals Supported (est.)
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  520+
+                  {deliveredMeals.toLocaleString()}
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  Based on recorded portions
+                  At 0.5 kg per meal, delivered food only
                 </p>
               </div>
 
@@ -195,15 +203,15 @@ export const DonorDashboardPage: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
-                  Circular Recovery
+                  In Progress
                 </p>
 
                 <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
-                  45 kg
+                  {inProgress.length}
                 </p>
 
                 <p className="mt-2 text-xs font-medium text-slate-500">
-                  Directed away from landfill
+                  Claimed or on the way
                 </p>
               </div>
 
@@ -247,6 +255,18 @@ export const DonorDashboardPage: React.FC = () => {
 
             <div className="divide-y divide-slate-100">
 
+              {error && (
+                <p role="alert" className="px-5 py-4 text-sm text-red-600">
+                  {error}
+                </p>
+              )}
+
+              {!error && recentDonations.length === 0 && (
+                <p className="px-5 py-8 text-center text-sm text-slate-500">
+                  {isLoading ? "Loading your donations…" : "No donations yet. Log your first surplus to get started."}
+                </p>
+              )}
+
               {recentDonations.map((donation) => (
                 <div
                   key={donation.id}
@@ -263,21 +283,21 @@ export const DonorDashboardPage: React.FC = () => {
 
                       <div>
                         <p className="text-sm font-semibold text-slate-900">
-                          {donation.food}
+                          {donation.foodName}
                         </p>
 
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
 
-                          <span>{donation.quantity}</span>
+                          <span>{donation.quantityKg} {donation.unit}</span>
 
                           <span className="hidden sm:block">•</span>
 
-                          <span>{donation.destination}</span>
+                          <span>About {donation.portions} meals</span>
 
                         </div>
 
                         <p className="mt-1 text-[11px] text-slate-400">
-                          {donation.id} · {donation.time}
+                          #{donation.id} · {formatWhen(donation.createdAt ?? donation.cookedAt)}
                         </p>
                       </div>
 
@@ -286,20 +306,20 @@ export const DonorDashboardPage: React.FC = () => {
 
                     <div className="flex items-center gap-2">
 
-                      {donation.status === "Recovered" ? (
+                      {donation.backendStatus === "DELIVERED" ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          {donation.status}
+                          {STATUS_LABEL[donation.backendStatus] ?? donation.backendStatus}
                         </span>
-                      ) : donation.status === "Collected" ? (
+                      ) : ["CLAIMED", "IN_TRANSIT"].includes(donation.backendStatus) ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
                           <PackageCheck className="h-3.5 w-3.5" />
-                          {donation.status}
+                          {STATUS_LABEL[donation.backendStatus] ?? donation.backendStatus}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
                           <Clock3 className="h-3.5 w-3.5" />
-                          {donation.status}
+                          {STATUS_LABEL[donation.backendStatus] ?? donation.backendStatus}
                         </span>
                       )}
 

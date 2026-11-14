@@ -105,6 +105,16 @@ def create_rescue_request(
     db.commit()
     db.refresh(new_request)
 
+    create_audit_event(
+        donation_id=new_request.donation_id,
+        action="REQUESTED",
+        actor_type="NGO",
+        actor_id=current_user.id,
+        details="Rescue request created",
+        db=db
+    )
+    db.refresh(new_request)
+
     return new_request
 
 @router.get("/my", response_model=list[RescueRequestResponse])
@@ -179,7 +189,7 @@ def update_rescue_request_status(
         if donation:
             donation.status = "CLAIMED"
 
-        db.commit()
+    db.commit()
     db.refresh(rescue_request)
 
     if status == "ACCEPTED":

@@ -71,9 +71,11 @@ export const ImpactAnalyticsPage: React.FC = () => {
     },
   ];
 
-  const totalMeals = impactMetrics?.totalMealsRecovered || 482930;
-  const methaneAvoided = impactMetrics?.methaneAvoidedKg || 34770;
-  const co2eAvoided = impactMetrics?.co2eAvoidedTons || 425.8;
+  // Live totals from /api/impact. The charts below are still sample data.
+  const totalMeals = impactMetrics?.totalMealsRecovered ?? 0;
+  const totalKg = impactMetrics?.totalKgRecovered ?? 0;
+  const successfulRescues = impactMetrics?.successfulRescues ?? 0;
+  const rescueRate = impactMetrics?.rescueRatePercent ?? 0;
 
   const handleExportReport = () => {
     alert('Generating board-ready ESG impact report...');
@@ -252,39 +254,39 @@ export const ImpactAnalyticsPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 
         <MetricTile
-          label="Total Meals Recovered"
+          label="Meals Supported (est.)"
           value={totalMeals}
           unit="Meals"
-          delta="Social redistribution"
+          delta="At 0.5 kg per meal"
           theme="emerald"
           icon={Utensils}
         />
 
         <MetricTile
-          label="Methane Avoided"
-          value={methaneAvoided}
-          unit="kg CH4"
-          delta="Estimated avoidance"
+          label="Food Recovered"
+          value={totalKg}
+          unit="kg"
+          delta="Delivered donations"
           theme="cyan"
           icon={Flame}
         />
 
         <MetricTile
-          label="GHG Impact Estimate"
-          value={co2eAvoided}
-          unit="Tons CO2e"
-          delta="Calculated from recovery data"
+          label="Successful Rescues"
+          value={successfulRescues}
+          unit="pickups"
+          delta="Marked delivered"
           theme="indigo"
           icon={BarChart3}
         />
 
         <MetricTile
-          label="Circular Diversion Rate"
-          value="99.4"
+          label="Rescue Rate"
+          value={rescueRate}
           unit="%"
-          delta="Target: 99.9% by Q4"
-          theme="amber"
-          icon={Recycle}
+          delta="Delivered / all donations"
+          theme="emerald"
+          icon={BarChart3}
         />
 
       </div>

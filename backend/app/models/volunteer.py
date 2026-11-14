@@ -28,3 +28,11 @@ class VolunteerProfile(Base):
     longitude = Column(Float, nullable=True)
 
     user = relationship("User")
+
+    @property
+    def name(self):
+        return self.user.name if self.user else None
+
+    @property
+    def phone(self):
+        return self.user.phone if self.user else None

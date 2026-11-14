@@ -200,6 +200,38 @@ def get_my_dispatches(
     return dispatches
 
 
+@router.get("/assigned", response_model=list[DispatchResponse])
+def get_assigned_dispatches(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Only volunteers have assigned dispatches
+    if current_user.role != "VOLUNTEER":
+        raise HTTPException(
+            status_code=403,
+            detail="Only volunteer users can view assigned dispatches"
+        )
+
+    volunteer = (
+        db.query(VolunteerProfile)
+        .filter(VolunteerProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if not volunteer:
+        raise HTTPException(
+            status_code=404,
+            detail="Volunteer profile not found"
+        )
+
+    return (
+        db.query(Dispatch)
+        .filter(Dispatch.volunteer_id == volunteer.id)
+        .order_by(Dispatch.id.desc())
+        .all()
+    )
+
+
 @router.patch(
     "/{dispatch_id}/status",
     response_model=DispatchResponse
@@ -305,6 +337,15 @@ def update_dispatch_status(
 
     dispatch.status = status
 
+    # Keep the donation's status in step with its dispatch
+    donation_status = {
+        "PICKED_UP": "IN_TRANSIT",
+        "DELIVERED": "DELIVERED",
+    }.get(status)
+
+    if donation_status and rescue_request.donation:
+        rescue_request.donation.status = donation_status
+
         # Record impact when food is successfully delivered
     if status == "DELIVERED":
 
@@ -367,6 +408,17 @@ def update_dispatch_status(
             volunteer.availability_status = "AVAILABLE"
 
     db.commit()
+
+    if status in ["PICKED_UP", "DELIVERED", "CANCELLED"]:
+        create_audit_event(
+            donation_id=rescue_request.donation_id,
+            action=status,
+            actor_type=current_user.role,
+            actor_id=current_user.id,
+            details=f"Dispatch {dispatch.id} marked {status}",
+            db=db
+        )
+
     db.refresh(dispatch)
 
-    return dispatch 
+    return dispatch

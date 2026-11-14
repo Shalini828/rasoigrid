@@ -1,24 +1,9 @@
-import os
-import json
-
-from dotenv import load_dotenv
-from google import genai
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.services.ai_prediction import generate_ai_prediction
-
-
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
 
 
 router = APIRouter(

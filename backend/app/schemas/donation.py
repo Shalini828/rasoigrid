@@ -31,6 +31,8 @@ class DonationResponse(DonationCreate):
     id: int
     donor_id: int
     status: str
+    created_at: datetime | None = None
+    donor_name: str | None = None
 
     class Config:
         from_attributes = True

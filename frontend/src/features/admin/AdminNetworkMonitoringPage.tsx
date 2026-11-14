@@ -4,7 +4,6 @@ import {
   ArrowDownToLine,
   Building2,
   CheckCircle2,
-  Clock3,
   HeartHandshake,
   MapPin,
   Radio,

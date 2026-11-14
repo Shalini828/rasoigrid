@@ -8,9 +8,19 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+_client = None
+
+
+def _get_client():
+    """
+    Create the Gemini client on first use, so the API can start
+    without GEMINI_API_KEY. Without a key, predictions use the
+    rule-based fallback below.
+    """
+    global _client
+    if _client is None:
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+    return _client
 
 
 def generate_ai_prediction(
@@ -64,7 +74,7 @@ food-safety personnel.
 """
 
     try:
-        response = client.models.generate_content(
+        response = _get_client().models.generate_content(
             model="gemini-2.5-flash-lite",
             contents=prompt,
             config={
