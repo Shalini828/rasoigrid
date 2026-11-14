@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.ngo import NGOProfile
 from app.services.matching import calculate_distance
 from app.services.audit import create_audit_event
+from app.services.expiry import expire_stale_donations
 
 router = APIRouter(
     prefix="/api/donations",
@@ -78,11 +79,27 @@ def get_donations(
             detail="Only NGO users can view available donations"
         )
 
+    expire_stale_donations(db)
+
     donations = (
         db.query(Donation)
         .filter(Donation.status == "AVAILABLE")
-        .order_by(Donation.created_at.desc())
         .all()
+    )
+
+    # Score each donation for this NGO (distance and capacity count),
+    # then put the most urgent first.
+    ngo = (
+        db.query(NGOProfile)
+        .filter(NGOProfile.user_id == current_user.id)
+        .first()
+    )
+
+    for donation in donations:
+        donation.score_for(ngo)
+
+    donations.sort(
+        key=lambda d: (-d.priority_score, d.consume_before)
     )
 
     return donations
@@ -93,6 +110,8 @@ def get_my_donations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    expire_stale_donations(db)
+
     donations = (
         db.query(Donation)
         .filter(Donation.donor_id == current_user.id)
@@ -178,8 +197,6 @@ def cancel_donation(
 
     donation.status = "CANCELLED"
 
-    donation.status = "CANCELLED"
-
     db.commit()
     db.refresh(donation)
 
@@ -226,20 +243,20 @@ def get_donation_matches(
     )
 
     def distance(ngo):
-     if (
-        donation.latitude is None
-        or donation.longitude is None
-        or ngo.latitude is None
-        or ngo.longitude is None
-    ):
-        return float("inf")
+        if (
+            donation.latitude is None
+            or donation.longitude is None
+            or ngo.latitude is None
+            or ngo.longitude is None
+        ):
+            return float("inf")
 
-    return calculate_distance(
-        donation.latitude,
-        donation.longitude,
-        ngo.latitude,
-        ngo.longitude
-    )
+        return calculate_distance(
+            donation.latitude,
+            donation.longitude,
+            ngo.latitude,
+            ngo.longitude
+        )
 
     ngos.sort(key=distance)
 

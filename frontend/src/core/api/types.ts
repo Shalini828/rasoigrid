@@ -8,7 +8,14 @@ export type DonationStatus =
   | "CLAIMED"
   | "IN_TRANSIT"
   | "DELIVERED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "EXPIRED";
+
+/** Decision-engine labels (backend/app/services/priority.py). */
+export type ApiPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+/** backend/app/services/recovery.py */
+export type RecoveryPath = "PEOPLE_FIRST" | "CIRCULAR_RECOVERY" | "LANDFILL_LAST";
 
 export interface DonationDTO {
   id: number;
@@ -27,6 +34,15 @@ export interface DonationDTO {
   longitude: number | null;
   status: DonationStatus | string;
   created_at: string | null;
+  // Planning scores from the decision engine (not a food-safety check)
+  priority?: ApiPriority | string | null;
+  priority_score?: number | null;
+  urgency?: string | null;
+  hours_remaining?: number | null;
+  recovery_path?: RecoveryPath | string | null;
+  recommended_action?: string | null;
+  /** Only on the NGO's available list. */
+  distance_to_ngo_km?: number | null;
 }
 
 export interface DonationInput {

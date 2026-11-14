@@ -73,7 +73,11 @@ export const NGODashboardPage: React.FC = () => {
   const available = surplusList.filter((d) => d.backendStatus === "AVAILABLE");
   const availableKg = available.reduce((sum, d) => sum + d.quantityKg, 0);
   const urgent = available.filter((d) => d.priority === "critical" || d.priority === "high");
-  const mostUrgent = [...available].sort((x, y) => x.hoursLeft - y.hoursLeft)[0];
+  // Highest decision-engine score first; soonest deadline breaks ties.
+  const mostUrgent = [...available].sort(
+    (x, y) =>
+      (y.priorityScore ?? 0) - (x.priorityScore ?? 0) || x.hoursLeft - y.hoursLeft,
+  )[0];
 
   const activeMissions = missionsList.filter((m) =>
     ["PENDING", "ASSIGNED", "PICKED_UP"].includes(m.dispatchStatus),
@@ -321,7 +325,7 @@ export const NGODashboardPage: React.FC = () => {
                   </div>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    The available donation with the least time left.
+                    The available donation with the highest priority score.
                   </p>
                 </div>
 

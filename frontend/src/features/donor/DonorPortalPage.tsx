@@ -38,6 +38,7 @@ const STATUS_LABEL: Record<string, string> = {
   IN_TRANSIT: 'Picked up',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
+  EXPIRED: 'Expired before pickup',
 };
 
 export const DonorPortalPage: React.FC = () => {

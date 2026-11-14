@@ -3,11 +3,15 @@
 RasoiGrid connects kitchens that have surplus food with NGOs and volunteers who can deliver it before it spoils.
 
 - **Donors** (restaurants, caterers, canteens) list surplus food with its quantity, timing and pickup location.
-- **NGOs**, once verified by an admin, see available food, claim it, and dispatch the nearest available volunteer.
+- **NGOs**, once verified by an admin, see available food (most urgent first), claim it, and dispatch the best-matched available volunteer.
 - **Volunteers** mark each pickup as collected, then delivered.
 - **Admins** verify NGOs.
 
 Every step is recorded in an audit log, and delivered food counts toward impact totals.
+
+Each donation gets a planning **priority** (LOW to CRITICAL, with a 0–100 score) from the rules in `backend/app/services`: quantity, time left before its consume-before time, and, for an NGO, its distance and capacity. It also gets a suggested **recovery path**: people first, then composting or other circular recovery, landfill last. These scores help decide what to pick up first; they do not certify food safety.
+
+Donations nobody claims before their consume-before time are marked **Expired** automatically and leave the NGOs' list.
 
 ```
 backend/   FastAPI + SQLAlchemy API (Python)
@@ -81,7 +85,7 @@ pytest
 
 ## Current limitations
 
-- Forecast, receiver hubs, circular recovery, and most admin pages (users, network, audit) still show sample data. They have no backend endpoints yet.
-- The scoring services in `backend/app/services` (priority, recovery path, volunteer ranking) are tested but not yet used by the API. On the frontend, priority is estimated from hours left.
+- Forecast, receiver hubs, circular recovery, and most admin pages (users, network, audit) still show sample data. They have no backend endpoints yet. The Forecast page says so on screen.
+- `POST /api/predictions` (Gemini, with a rule-based fallback) works but isn't used by the frontend yet. Forecasting needs weeks of real donation history first.
 - There are no database migrations yet. Changing a model means recreating the tables.
 - Delivery is confirmed by the volunteer or NGO. There is no one-time-code check yet.

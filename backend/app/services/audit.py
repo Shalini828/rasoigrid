@@ -29,6 +29,7 @@ def create_audit_event(
         "PICKED_UP",
         "DELIVERED",
         "CANCELLED",
+        "EXPIRED",
         "RECOVERY"
     ]
 

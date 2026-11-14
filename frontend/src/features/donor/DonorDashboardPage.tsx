@@ -23,6 +23,7 @@ const STATUS_LABEL: Record<string, string> = {
   IN_TRANSIT: "Picked up",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+  EXPIRED: "Expired",
 };
 
 const formatWhen = (iso: string | null) =>
@@ -38,7 +39,9 @@ const formatWhen = (iso: string | null) =>
 export const DonorDashboardPage: React.FC = () => {
   const { surplusList, isLoading, error } = useRescueStore();
 
-  const active = surplusList.filter((d) => d.backendStatus !== "CANCELLED");
+  const active = surplusList.filter(
+    (d) => !["CANCELLED", "EXPIRED"].includes(d.backendStatus),
+  );
   const delivered = active.filter((d) => d.backendStatus === "DELIVERED");
   const inProgress = active.filter((d) =>
     ["CLAIMED", "IN_TRANSIT"].includes(d.backendStatus),

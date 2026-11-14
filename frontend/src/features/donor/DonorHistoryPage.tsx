@@ -22,7 +22,8 @@ type DonationStatus =
   | "Claimed"
   | "Picked up"
   | "Delivered"
-  | "Cancelled";
+  | "Cancelled"
+  | "Expired";
 
 const STATUS_FROM_API: Record<string, DonationStatus> = {
   AVAILABLE: "Waiting",
@@ -30,6 +31,7 @@ const STATUS_FROM_API: Record<string, DonationStatus> = {
   IN_TRANSIT: "Picked up",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+  EXPIRED: "Expired",
 };
 
 const NEXT_STEP: Record<DonationStatus, string> = {
@@ -38,6 +40,7 @@ const NEXT_STEP: Record<DonationStatus, string> = {
   "Picked up": "A volunteer is delivering it",
   Delivered: "Delivered to the NGO",
   Cancelled: "Withdrawn by you",
+  Expired: "Not claimed in time; compost or other recovery",
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -106,6 +109,10 @@ const statusStyles: Record<
     className: "bg-red-50 text-red-600",
     icon: <Clock3 className="h-3.5 w-3.5" />,
   },
+  Expired: {
+    className: "bg-slate-200 text-slate-600",
+    icon: <Clock3 className="h-3.5 w-3.5" />,
+  },
 };
 
 export const DonorHistoryPage: React.FC = () => {
@@ -154,7 +161,9 @@ export const DonorHistoryPage: React.FC = () => {
     });
   }, [donationRecords, searchTerm, statusFilter]);
 
-  const counted = donationRecords.filter((r) => r.status !== "Cancelled");
+  const counted = donationRecords.filter(
+    (r) => r.status !== "Cancelled" && r.status !== "Expired",
+  );
 
   const totalQuantity = counted.reduce(
     (sum, record) => sum + record.quantity,
@@ -388,6 +397,7 @@ export const DonorHistoryPage: React.FC = () => {
                   "Picked up",
                   "Delivered",
                   "Cancelled",
+                  "Expired",
                 ] as const
               ).map((status) => (
                 <button

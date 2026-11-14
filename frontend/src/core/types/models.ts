@@ -13,7 +13,8 @@ export type RescueStatus =
   | 'in_transit' 
   | 'delivered_human' 
   | 'diverted_circular' 
-  | 'cancelled';
+  | 'cancelled'
+  | 'expired';
 
 export type PriorityLevel = 'critical' | 'high' | 'medium' | 'standard';
 
@@ -55,6 +56,13 @@ export interface FoodSurplusItem {
   status: RescueStatus;
   backendStatus: string;
   priority: PriorityLevel;
+  /** 0-100 from the backend decision engine; null if not scored. */
+  priorityScore: number | null;
+  /** PEOPLE_FIRST, CIRCULAR_RECOVERY or LANDFILL_LAST. */
+  recoveryPath: string | null;
+  recommendedAction: string | null;
+  /** Distance to the logged-in NGO, when the backend worked it out. */
+  distanceToNgoKm: number | null;
   createdAt: string | null;
 }
 
