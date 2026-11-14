@@ -729,12 +729,28 @@ export const DispatchCommandPage: React.FC = () => {
 
                       {selectedSurplus.tempRequirement === "hot_above_60c"
                         ? ">60°C Hot / Insulated"
-                        : "<4°C Chilled"}
+                        : selectedSurplus.tempRequirement === "chilled_below_4c"
+                          ? "<4°C Chilled"
+                          : "Room temperature"}
                     </div>
 
-                    <div className="mt-1 text-xs text-slate-500">
-                      Supports operational coordination
+                    <div
+                      className={`mt-1 text-xs ${
+                        selectedSurplus.safetyChecklist?.confirmed
+                          ? "text-emerald-700"
+                          : "text-amber-700"
+                      }`}
+                    >
+                      {selectedSurplus.safetyChecklist?.confirmed
+                        ? "Donor confirmed the safety checklist"
+                        : "No safety checklist from the donor; check on pickup"}
                     </div>
+
+                    {selectedSurplus.safetyChecklist?.allergens && (
+                      <div className="mt-1 text-xs font-semibold text-rose-700">
+                        Allergens: {selectedSurplus.safetyChecklist.allergens}
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-xl bg-slate-50 p-4">
@@ -1088,6 +1104,21 @@ export const DispatchCommandPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
+
+                        {mission.handoverCode &&
+                          ["PENDING", "ASSIGNED", "PICKED_UP"].includes(mission.dispatchStatus) && (
+                            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                Handover code
+                              </div>
+                              <div className="mt-0.5 font-mono text-lg font-bold tracking-[0.3em] text-amber-900">
+                                {mission.handoverCode}
+                              </div>
+                              <div className="text-[10px] leading-4 text-amber-700">
+                                Give it to the volunteer only once you have the food.
+                              </div>
+                            </div>
+                          )}
 
                         {mission.dispatchStatus === "PICKED_UP" && (
                           <button

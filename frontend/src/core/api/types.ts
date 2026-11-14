@@ -43,6 +43,17 @@ export interface DonationDTO {
   recommended_action?: string | null;
   /** Only on the NGO's available list. */
   distance_to_ngo_km?: number | null;
+  /** The donor's food-safety declaration, if they gave one. */
+  safety_checklist?: SafetyChecklistDTO | null;
+}
+
+/** Donor's food-safety declaration (all items must be true). */
+export interface SafetyChecklistDTO {
+  hygienic_preparation: boolean;
+  safe_temperature: boolean;
+  covered_and_labelled: boolean;
+  no_spoilage_signs: boolean;
+  allergens: string | null;
 }
 
 export interface DonationInput {
@@ -57,6 +68,7 @@ export interface DonationInput {
   pickup_required: boolean;
   latitude: number | null;
   longitude: number | null;
+  safety_checklist: SafetyChecklistDTO | null;
 }
 
 export interface NGODTO {
@@ -124,6 +136,11 @@ export interface DispatchDTO {
   volunteer_phone: string | null;
   ngo_name: string | null;
   ngo_address: string | null;
+  /** True when the volunteer must enter the NGO's code to deliver. */
+  requires_handover_code?: boolean;
+  handover_confirmed?: boolean;
+  /** Only sent to the receiving NGO. */
+  handover_code?: string | null;
 }
 
 export interface ImpactDTO {
@@ -134,4 +151,53 @@ export interface ImpactDTO {
   successful_rescues: number;
   total_donations: number;
   rescue_rate_percent: number;
+}
+
+/* ---------------- Admin ---------------- */
+
+export interface AdminUserDTO {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  role: "DONOR" | "NGO" | "VOLUNTEER" | "ADMIN" | string;
+  created_at: string | null;
+  /** NGO: PENDING/VERIFIED. Volunteer: AVAILABLE/UNAVAILABLE. NO_PROFILE if not set up. */
+  profile_status: string | null;
+  organization_name: string | null;
+}
+
+export interface AdminAuditDTO {
+  id: number;
+  donation_id: number;
+  food_name: string | null;
+  action: string;
+  actor_type: string;
+  actor_id: number | null;
+  actor_name: string | null;
+  details: string | null;
+  timestamp: string;
+}
+
+export interface AdminOverviewDTO {
+  users: { total: number; donors: number; ngos: number; volunteers: number; admins: number };
+  ngos: { verified: number; pending: number };
+  volunteers: { on_duty: number; busy_or_off: number };
+  donations: {
+    total: number;
+    available: number;
+    claimed: number;
+    in_transit: number;
+    delivered: number;
+    expired: number;
+    cancelled: number;
+  };
+  dispatches: {
+    waiting_for_volunteer: number;
+    assigned: number;
+    picked_up: number;
+    delivered: number;
+    cancelled: number;
+  };
+  delivery_rate_percent: number | null;
 }

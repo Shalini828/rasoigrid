@@ -26,7 +26,11 @@ interface RescueStoreState {
   /** NGO: claim a donation and dispatch the nearest available volunteer. */
   dispatchMission: (surplusId: string) => Promise<RescueMission>;
   /** Move a dispatch to its next status (NGO or assigned volunteer). */
-  updateMissionStatus: (missionId: string, status: DispatchStatus) => Promise<RescueMission>;
+  updateMissionStatus: (
+    missionId: string,
+    status: DispatchStatus,
+    code?: string,
+  ) => Promise<RescueMission>;
   setNgoProfile: (ngo: NGODTO) => void;
   setVolunteerProfile: (v: VolunteerDTO) => void;
   reset: () => void;
@@ -62,7 +66,7 @@ export const useRescueStore = create<RescueStoreState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      const impact = await api.getImpactMetrics().catch(() => null);
+      const impact = await api.getMyImpact().catch(() => null);
 
       if (role === 'DONOR') {
         const surplusList = await api.getMyDonations();
@@ -155,14 +159,19 @@ export const useRescueStore = create<RescueStoreState>((set, get) => ({
     return mission;
   },
 
-  updateMissionStatus: async (missionId, status) => {
-    const mission = await api.updateDispatchStatus(Number(missionId), status);
+  updateMissionStatus: async (missionId, status, code) => {
+    const mission = await api.updateDispatchStatus(Number(missionId), status, code);
     set((state) => ({
       missionsList: state.missionsList.map((m) => (m.id === missionId ? mission : m)),
       surplusList: state.surplusList.map((s) =>
         mission.surplusItem && s.id === mission.surplusItem.id ? mission.surplusItem : s,
       ),
     }));
+
+    if (status === 'DELIVERED') {
+      const impactMetrics = await api.getMyImpact().catch(() => null);
+      if (impactMetrics) set({ impactMetrics });
+    }
 
     // The server frees the volunteer when a pickup ends; pick that up.
     if (get().volunteerProfile && (status === 'DELIVERED' || status === 'CANCELLED')) {

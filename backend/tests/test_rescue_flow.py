@@ -179,11 +179,17 @@ def test_full_rescue_flow():
     dispatch_id = dispatch.json()["id"]
     assert dispatch.json()["status"] == "ASSIGNED"
 
+    # The NGO gets a six-digit handover code; the volunteer does not
+    handover_code = dispatch.json()["handover_code"]
+    assert handover_code and len(handover_code) == 6
+
     # Volunteer sees it and moves it through pickup and delivery
     assigned = client.get("/api/dispatches/assigned", headers=volunteer)
     assert assigned.status_code == 200
     mine = [d for d in assigned.json() if d["id"] == dispatch_id]
     assert mine and mine[0]["donation"]["id"] == donation_id
+    assert mine[0]["requires_handover_code"] is True
+    assert mine[0]["handover_code"] is None
 
     picked = client.patch(
         f"/api/dispatches/{dispatch_id}/status",
@@ -192,12 +198,31 @@ def test_full_rescue_flow():
     )
     assert picked.json()["donation"]["status"] == "IN_TRANSIT"
 
-    delivered = client.patch(
+    # Delivering needs the NGO's code
+    no_code = client.patch(
         f"/api/dispatches/{dispatch_id}/status",
         headers=volunteer,
         params={"status": "DELIVERED"},
     )
+    assert no_code.status_code == 400
+
+    wrong = "000000" if handover_code != "000000" else "111111"
+    wrong_code = client.patch(
+        f"/api/dispatches/{dispatch_id}/status",
+        headers=volunteer,
+        params={"status": "DELIVERED", "code": wrong},
+    )
+    assert wrong_code.status_code == 400
+
+    delivered = client.patch(
+        f"/api/dispatches/{dispatch_id}/status",
+        headers=volunteer,
+        params={"status": "DELIVERED", "code": handover_code},
+    )
+    assert delivered.status_code == 200, delivered.text
     assert delivered.json()["status"] == "DELIVERED"
+    assert delivered.json()["handover_confirmed"] is True
+    assert delivered.json()["handover_code"] is None
     assert delivered.json()["volunteer_name"] == "Flow VOLUNTEER"
     assert delivered.json()["ngo_name"] == "Flow Shelter"
     assert delivered.json()["donation"]["status"] == "DELIVERED"

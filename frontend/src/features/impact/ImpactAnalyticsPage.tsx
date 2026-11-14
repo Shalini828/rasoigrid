@@ -16,6 +16,7 @@ import {
 
 import { GlassCard } from '../../components/ui/GlassCard';
 import { MetricTile } from '../../components/ui/MetricTile';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { useRescueStore } from '../../stores/useRescueStore';
 
 import {
@@ -29,8 +30,17 @@ import {
   CartesianGrid,
 } from 'recharts';
 
+const SCOPE_LABEL: Record<string, string> = {
+  DONOR: 'Your donations',
+  NGO: 'Food your NGO accepted',
+  VOLUNTEER: 'Your pickups',
+  ADMIN: 'Whole network',
+};
+
 export const ImpactAnalyticsPage: React.FC = () => {
   const { impactMetrics } = useRescueStore();
+  const role = useAuthStore((state) => state.user?.role);
+  const scope = (role && SCOPE_LABEL[role]) ?? 'Your activity';
 
   const monthlyImpactData = [
     {
@@ -71,7 +81,8 @@ export const ImpactAnalyticsPage: React.FC = () => {
     },
   ];
 
-  // Live totals from /api/impact. The charts below are still sample data.
+  // Live totals from /api/impact/me (the user's own share; the whole
+  // network for admins). The charts below are still sample data.
   const totalMeals = impactMetrics?.totalMealsRecovered ?? 0;
   const totalKg = impactMetrics?.totalKgRecovered ?? 0;
   const successfulRescues = impactMetrics?.successfulRescues ?? 0;
@@ -257,7 +268,7 @@ export const ImpactAnalyticsPage: React.FC = () => {
           label="Meals Supported (est.)"
           value={totalMeals}
           unit="Meals"
-          delta="At 0.5 kg per meal"
+          delta={`${scope} · 0.5 kg per meal`}
           theme="emerald"
           icon={Utensils}
         />
@@ -266,7 +277,7 @@ export const ImpactAnalyticsPage: React.FC = () => {
           label="Food Recovered"
           value={totalKg}
           unit="kg"
-          delta="Delivered donations"
+          delta={`${scope} · delivered`}
           theme="cyan"
           icon={Flame}
         />
@@ -284,7 +295,7 @@ export const ImpactAnalyticsPage: React.FC = () => {
           label="Rescue Rate"
           value={rescueRate}
           unit="%"
-          delta="Delivered / all donations"
+          delta={`${scope} · delivered / all`}
           theme="emerald"
           icon={BarChart3}
         />

@@ -518,6 +518,16 @@ export const NGODashboardPage: React.FC = () => {
                             {mission.surplusItem?.donorName ?? "Donor"} · {mission.surplusItem?.quantityKg ?? 0} kg
                           </p>
 
+                          {mission.handoverCode &&
+                            ["PENDING", "ASSIGNED", "PICKED_UP"].includes(mission.dispatchStatus) && (
+                              <p className="mt-1 text-xs text-amber-700">
+                                Handover code:{" "}
+                                <strong className="font-mono tracking-widest">
+                                  {mission.handoverCode}
+                                </strong>
+                              </p>
+                            )}
+
                         </div>
 
                       </div>

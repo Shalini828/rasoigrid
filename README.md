@@ -2,10 +2,10 @@
 
 RasoiGrid connects kitchens that have surplus food with NGOs and volunteers who can deliver it before it spoils.
 
-- **Donors** (restaurants, caterers, canteens) list surplus food with its quantity, timing and pickup location.
+- **Donors** (restaurants, caterers, canteens) list surplus food with its quantity, timing, pickup location and a short food-safety checklist.
 - **NGOs**, once verified by an admin, see available food (most urgent first), claim it, and dispatch the best-matched available volunteer.
-- **Volunteers** mark each pickup as collected, then delivered.
-- **Admins** verify NGOs.
+- **Volunteers** mark each pickup as collected, then delivered. To mark it delivered they enter the NGO's 6-digit **handover code**, which proves the NGO received the food.
+- **Admins** verify NGOs and see every user, the audit trail, and live network figures.
 
 Every step is recorded in an audit log, and delivered food counts toward impact totals.
 
@@ -58,8 +58,8 @@ Open http://localhost:5173.
 2. Log in as the NGO and fill in the NGO profile. Log in as the volunteer and fill in the volunteer profile.
 3. Log in as the admin, open **NGO Verification**, and verify the NGO.
 4. As the donor, log a surplus. Use **Use my current location**, or type the coordinates.
-5. As the NGO, open **Command**, select the donation, and click **Claim & dispatch nearest volunteer**.
-6. As the volunteer, open **Logistics** and mark the pickup as picked up, then delivered.
+5. As the NGO, open **Command**, select the donation, and click **Claim & dispatch nearest volunteer**. Note the handover code on the pickup card.
+6. As the volunteer, open **Logistics**, mark the pickup as picked up, then enter the NGO's handover code and mark it delivered.
 7. The donor's dashboard and history now show it as delivered.
 
 ## Tests
@@ -88,4 +88,6 @@ pytest
 - Forecast, receiver hubs, circular recovery, and most admin pages (users, network, audit) still show sample data. They have no backend endpoints yet. The Forecast page says so on screen.
 - `POST /api/predictions` (Gemini, with a rule-based fallback) works but isn't used by the frontend yet. Forecasting needs weeks of real donation history first.
 - There are no database migrations yet. Changing a model means recreating the tables.
-- Delivery is confirmed by the volunteer or NGO. There is no one-time-code check yet.
+- Five wrong handover codes lock the code; the NGO can then confirm delivery from their side.
+- The food-safety checklist is the donor's declaration, not an inspection. The receiving NGO still decides before serving.
+- New features add tables (`delivery_codes`, `donation_safety_checks`) rather than changing existing ones, so existing databases pick them up on restart.

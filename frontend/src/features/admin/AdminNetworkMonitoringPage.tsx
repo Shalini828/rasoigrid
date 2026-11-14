@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Activity,
   ArrowDownToLine,
@@ -24,42 +24,97 @@ interface NetworkNode {
   metric: string;
 }
 
-const networkNodes: NetworkNode[] = [
+import { api } from "../../core/api/client";
+import type { AdminOverviewDTO } from "../../core/api/types";
+
+const pct = (part: number, whole: number) =>
+  whole > 0 ? Math.round((part / whole) * 100) : null;
+
+const pctLabel = (value: number | null) => (value === null ? "No data yet" : `${value}%`);
+
+const buildNodes = (o: AdminOverviewDTO): NetworkNode[] => [
   {
-    name: "Mumbai Rescue Network",
-    type: "NGO Coordination",
-    location: "Mumbai Metro",
-    status: "ONLINE",
-    activity: "18 active rescue workflows",
-    metric: "94% response coverage",
+    name: "Donors",
+    type: "Restaurants, caterers and canteens",
+    location: "All registered donors",
+    status: o.users.donors > 0 ? "ONLINE" : "OFFLINE",
+    activity: `${o.users.donors} donors · ${o.donations.total} donations listed`,
+    metric: `${o.donations.available} waiting for an NGO`,
   },
   {
-    name: "Volunteer Field Network",
-    type: "Logistics",
-    location: "Mumbai Metro",
-    status: "ONLINE",
-    activity: "27 volunteers active",
-    metric: "91% mission completion",
+    name: "NGOs",
+    type: "Rescue and distribution partners",
+    location: "Verified by admins",
+    status: o.ngos.verified > 0 ? (o.ngos.pending > 0 ? "ATTENTION" : "ONLINE") : "OFFLINE",
+    activity: `${o.ngos.verified} verified · ${o.ngos.pending} pending`,
+    metric: `${o.donations.claimed + o.donations.in_transit} donations being collected`,
   },
   {
-    name: "Receiver & Shelter Network",
-    type: "Distribution",
-    location: "Mumbai Metro",
-    status: "ONLINE",
-    activity: "12 hubs receiving",
-    metric: "2 urgent shortages",
-  },
-  {
-    name: "Circular Recovery Network",
-    type: "Organic Recovery",
-    location: "Mumbai Metro",
-    status: "ATTENTION",
-    activity: "4 facilities processing",
-    metric: "87% average utilization",
+    name: "Volunteers",
+    type: "Pickup and delivery",
+    location: "Field network",
+    status: o.volunteers.on_duty > 0 ? "ONLINE" : o.users.volunteers > 0 ? "ATTENTION" : "OFFLINE",
+    activity: `${o.volunteers.on_duty} on duty · ${o.volunteers.busy_or_off} busy or off`,
+    metric: `${o.dispatches.delivered} deliveries completed`,
   },
 ];
 
 export const AdminNetworkMonitoringPage: React.FC = () => {
+  const [overview, setOverview] = useState<AdminOverviewDTO | null>(null);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAdminOverview()
+      .then((data) => {
+        if (!cancelled) setOverview(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Could not load network figures.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const o = overview;
+  const liveDonations = o ? o.donations.total - o.donations.cancelled : 0;
+  const liveDispatches = o ? o.dispatches.waiting_for_volunteer + o.dispatches.assigned + o.dispatches.picked_up + o.dispatches.delivered : 0;
+  const activePickups = o ? o.dispatches.waiting_for_volunteer + o.dispatches.assigned + o.dispatches.picked_up : 0;
+
+  const claimedRate = o ? pct(o.donations.claimed + o.donations.in_transit + o.donations.delivered, liveDonations) : null;
+  const staffedRate = o ? pct(o.dispatches.assigned + o.dispatches.picked_up + o.dispatches.delivered, liveDispatches) : null;
+  const completedRate = o ? pct(o.dispatches.delivered, liveDispatches) : null;
+  const deliveryRate = o?.delivery_rate_percent ?? null;
+
+  const alerts: { title: string; description: string; level: "URGENT" | "ATTENTION" | "REVIEW" }[] = [];
+  if (o && o.dispatches.waiting_for_volunteer > 0) {
+    alerts.push({
+      title: `${o.dispatches.waiting_for_volunteer} pickups`,
+      description: "Claimed but no volunteer was free",
+      level: "URGENT",
+    });
+  }
+  if (o && o.donations.expired > 0) {
+    alerts.push({
+      title: `${o.donations.expired} donations expired`,
+      description: "Nobody claimed them in time",
+      level: "ATTENTION",
+    });
+  }
+  if (o && o.ngos.pending > 0) {
+    alerts.push({
+      title: `${o.ngos.pending} NGO applications`,
+      description: "Awaiting verification",
+      level: "REVIEW",
+    });
+  }
+
+  const networkNodes = o ? buildNodes(o) : [];
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -95,7 +150,7 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
 
                   <p className="text-lg font-bold text-slate-900">
-                    Operational
+                    {loadError ? "Unavailable" : o ? (alerts.some((a) => a.level === "URGENT") ? "Needs attention" : "Operational") : "Loading…"}
                   </p>
                 </div>
               </div>
@@ -103,34 +158,40 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
           </div>
         </div>
 
+        {loadError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {loadError}
+          </p>
+        )}
+
         {/* Top metrics */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={<HeartHandshake className="h-5 w-5 text-emerald-600" />}
-            label="Active Rescue Workflows"
-            value="18"
-            detail="Currently coordinated"
+            label="Food Waiting"
+            value={o ? String(o.donations.available) : "—"}
+            detail="Donations no NGO has claimed yet"
           />
 
           <MetricCard
             icon={<Truck className="h-5 w-5 text-blue-600" />}
-            label="Active Missions"
-            value="27"
-            detail="Volunteer logistics"
+            label="Pickups In Progress"
+            value={o ? String(activePickups) : "—"}
+            detail="Claimed and not yet delivered"
           />
 
           <MetricCard
             icon={<Building2 className="h-5 w-5 text-violet-600" />}
-            label="Receiver Hubs Online"
-            value="12"
-            detail="Ready for intake"
+            label="Verified NGOs"
+            value={o ? String(o.ngos.verified) : "—"}
+            detail="Able to claim food"
           />
 
           <MetricCard
             icon={<Recycle className="h-5 w-5 text-amber-600" />}
-            label="Recovery Facilities"
-            value="4"
-            detail="Circular pathways"
+            label="Volunteers On Duty"
+            value={o ? String(o.volunteers.on_duty) : "—"}
+            detail="Free for a pickup now"
           />
         </div>
 
@@ -154,34 +215,33 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
 
             <div className="mt-6 space-y-5">
               <HealthRow
-                label="Food Surplus Intake"
-                value="98%"
-                description="Donation reporting systems"
+                label="Donations claimed"
+                value={pctLabel(claimedRate)}
+                percent={claimedRate}
+                description="Listed food that an NGO took on (cancelled ones left out)"
               />
 
               <HealthRow
-                label="Rescue Coordination"
-                value="94%"
-                description="NGO matching and dispatch"
+                label="Pickups with a volunteer"
+                value={pctLabel(staffedRate)}
+                percent={staffedRate}
+                description="Pickups that got a volunteer assigned"
+                attention={staffedRate !== null && staffedRate < 80}
               />
 
               <HealthRow
-                label="Volunteer Logistics"
-                value="91%"
-                description="Pickup and handover workflow"
+                label="Pickups delivered"
+                value={pctLabel(completedRate)}
+                percent={completedRate}
+                description="Pickups that reached the NGO"
               />
 
               <HealthRow
-                label="Receiver Distribution"
-                value="96%"
-                description="Community intake capacity"
-              />
-
-              <HealthRow
-                label="Circular Recovery"
-                value="87%"
-                description="Organic recovery utilization"
-                attention
+                label="Delivered rather than expired"
+                value={pctLabel(deliveryRate)}
+                percent={deliveryRate}
+                description="Of donations that were delivered or expired"
+                attention={deliveryRate !== null && deliveryRate < 80}
               />
             </div>
           </div>
@@ -203,23 +263,20 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
             </div>
 
             <div className="mt-6 space-y-3">
-              <AlertItem
-                title="2 receiver hubs"
-                description="Reporting urgent food shortage"
-                level="URGENT"
-              />
+              {alerts.map((alert) => (
+                <AlertItem
+                  key={alert.title}
+                  title={alert.title}
+                  description={alert.description}
+                  level={alert.level}
+                />
+              ))}
 
-              <AlertItem
-                title="Recovery utilization"
-                description="One facility nearing capacity"
-                level="ATTENTION"
-              />
-
-              <AlertItem
-                title="3 NGO applications"
-                description="Awaiting verification"
-                level="REVIEW"
-              />
+              {o && alerts.length === 0 && (
+                <p className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                  Nothing needs attention right now.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -229,7 +286,7 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
-                Connected Network Nodes
+                Network Participants
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
@@ -239,7 +296,7 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
 
             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live monitoring
+              Live figures
             </div>
           </div>
 
@@ -323,11 +380,6 @@ export const AdminNetworkMonitoringPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Demo notice */}
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-400">
-          Frontend demonstration data — live network metrics will connect to
-          the RasoiGrid backend later.
-        </div>
       </div>
     </div>
   );
@@ -374,6 +426,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
 interface HealthRowProps {
   label: string;
   value: string;
+  /** 0-100 bar fill; null shows an empty bar. */
+  percent: number | null;
   description: string;
   attention?: boolean;
 }
@@ -381,6 +435,7 @@ interface HealthRowProps {
 const HealthRow: React.FC<HealthRowProps> = ({
   label,
   value,
+  percent,
   description,
   attention = false,
 }) => {
@@ -411,10 +466,9 @@ const HealthRow: React.FC<HealthRowProps> = ({
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <div
           className={`h-full rounded-full ${
-            attention
-              ? "w-[87%] bg-amber-400"
-              : "w-[94%] bg-emerald-500"
+            attention ? "bg-amber-400" : "bg-emerald-500"
           }`}
+          style={{ width: `${percent ?? 0}%` }}
         />
       </div>
     </div>

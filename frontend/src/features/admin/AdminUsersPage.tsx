@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import {
   Users,
@@ -10,68 +10,95 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-type UserRole = "DONOR" | "NGO" | "VOLUNTEER";
+import { api } from "../../core/api/client";
+import type { AdminUserDTO } from "../../core/api/types";
+
+type UserRole = "DONOR" | "NGO" | "VOLUNTEER" | "ADMIN";
+
+type Tone = "ok" | "warn" | "muted";
 
 interface NetworkUser {
   id: number;
   name: string;
   email: string;
   role: UserRole;
+  /** ACTIVE once the account can take part (NGO and volunteer need a profile). */
   status: "ACTIVE" | "PENDING";
-  verified: boolean;
+  verification: { label: string; tone: Tone };
 }
 
-const demoUsers: NetworkUser[] = [
-  {
-    id: 1,
-    name: "Urban Harvest Kitchen",
-    email: "donor@urbanharvest.in",
-    role: "DONOR",
-    status: "ACTIVE",
-    verified: true,
-  },
-  {
-    id: 2,
-    name: "Seva Food Foundation",
-    email: "operations@sevafood.org",
-    role: "NGO",
-    status: "ACTIVE",
-    verified: true,
-  },
-  {
-    id: 3,
-    name: "Rahul Sharma",
-    email: "rahul.volunteer@example.com",
-    role: "VOLUNTEER",
-    status: "ACTIVE",
-    verified: true,
-  },
-  {
-    id: 4,
-    name: "Community Kitchen Network",
-    email: "contact@communitykitchen.org",
-    role: "NGO",
-    status: "PENDING",
-    verified: false,
-  },
-  {
-    id: 5,
-    name: "Fresh Bites Restaurant",
-    email: "surplus@freshbites.in",
-    role: "DONOR",
-    status: "ACTIVE",
-    verified: true,
-  },
-];
+const toNetworkUser = (u: AdminUserDTO): NetworkUser => {
+  const role = (["DONOR", "NGO", "VOLUNTEER", "ADMIN"].includes(u.role)
+    ? u.role
+    : "DONOR") as UserRole;
+
+  let verification: NetworkUser["verification"] = { label: "Not required", tone: "muted" };
+  let status: NetworkUser["status"] = "ACTIVE";
+
+  if (u.profile_status === "NO_PROFILE") {
+    status = "PENDING";
+    verification = { label: "Profile not set up", tone: "warn" };
+  } else if (role === "NGO") {
+    verification =
+      u.profile_status === "VERIFIED"
+        ? { label: "Verified", tone: "ok" }
+        : { label: "Pending review", tone: "warn" };
+    if (u.profile_status !== "VERIFIED") status = "PENDING";
+  } else if (role === "VOLUNTEER") {
+    verification =
+      u.profile_status === "AVAILABLE"
+        ? { label: "On duty", tone: "ok" }
+        : { label: "Off duty or on a pickup", tone: "muted" };
+  }
+
+  return {
+    id: u.id,
+    name: role === "NGO" && u.organization_name ? `${u.organization_name} (${u.name})` : u.name,
+    email: u.email,
+    role,
+    status,
+    verification,
+  };
+};
+
+const TONE_CLASS: Record<Tone, string> = {
+  ok: "text-emerald-600",
+  warn: "text-amber-600",
+  muted: "text-slate-400",
+};
 
 export const AdminUsersPage: React.FC = () => {
+  const [users, setUsers] = useState<NetworkUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAdminUsers()
+      .then((rows) => {
+        if (!cancelled) setUsers(rows.map(toNetworkUser));
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Could not load users.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<
     "ALL" | UserRole
   >("ALL");
 
   const filteredUsers = useMemo(() => {
-    return demoUsers.filter((user) => {
+    return users.filter((user) => {
       const matchesSearch =
         user.name
           .toLowerCase()
@@ -86,17 +113,17 @@ export const AdminUsersPage: React.FC = () => {
 
       return matchesSearch && matchesRole;
     });
-  }, [search, roleFilter]);
+  }, [users, search, roleFilter]);
 
-  const donorCount = demoUsers.filter(
+  const donorCount = users.filter(
     (user) => user.role === "DONOR"
   ).length;
 
-  const ngoCount = demoUsers.filter(
+  const ngoCount = users.filter(
     (user) => user.role === "NGO"
   ).length;
 
-  const volunteerCount = demoUsers.filter(
+  const volunteerCount = users.filter(
     (user) => user.role === "VOLUNTEER"
   ).length;
 
@@ -147,7 +174,7 @@ export const AdminUsersPage: React.FC = () => {
 
           <Metric
             label="Registered Users"
-            value={String(demoUsers.length)}
+            value={String(users.length)}
             icon={<Users className="h-5 w-5" />}
           />
 
@@ -222,6 +249,7 @@ export const AdminUsersPage: React.FC = () => {
                   <option value="VOLUNTEER">
                     Volunteers
                   </option>
+                  <option value="ADMIN">Admins</option>
                 </select>
 
               </div>
@@ -248,11 +276,11 @@ export const AdminUsersPage: React.FC = () => {
                   </th>
 
                   <th className="px-5 py-3 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Access
+                    Account
                   </th>
 
                   <th className="px-5 py-3 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                    Verification
+                    Profile
                   </th>
 
                 </tr>
@@ -298,7 +326,7 @@ export const AdminUsersPage: React.FC = () => {
                         }`}
                       >
                         <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {user.status}
+                        {user.status === "ACTIVE" ? "Active" : "Needs action"}
                       </span>
 
                     </td>
@@ -306,16 +334,10 @@ export const AdminUsersPage: React.FC = () => {
                     <td className="px-5 py-4">
 
                       <span
-                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${
-                          user.verified
-                            ? "text-emerald-600"
-                            : "text-amber-600"
-                        }`}
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${TONE_CLASS[user.verification.tone]}`}
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        {user.verified
-                          ? "Verified"
-                          : "Pending review"}
+                        {user.verification.label}
                       </span>
 
                     </td>
@@ -330,9 +352,19 @@ export const AdminUsersPage: React.FC = () => {
 
           </div>
 
-          {filteredUsers.length === 0 && (
+          {loadError && (
+            <p role="alert" className="mx-5 my-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {loadError}
+            </p>
+          )}
+
+          {filteredUsers.length === 0 && !loadError && (
             <div className="px-6 py-12 text-center text-sm text-slate-500">
-              No participants match your search.
+              {isLoading
+                ? "Loading users…"
+                : users.length === 0
+                  ? "No one has registered yet."
+                  : "No participants match your search."}
             </div>
           )}
 
@@ -343,9 +375,8 @@ export const AdminUsersPage: React.FC = () => {
           <span className="font-bold">
             Admin access principle:
           </span>{" "}
-          role permissions should be enforced by the backend as well as
-          the frontend. This page is currently using demonstration data
-          until the user-management API is connected.
+          role permissions are enforced by the backend as well as the
+          frontend. NGOs are verified on the NGO Verification page.
         </div>
 
       </div>
@@ -415,6 +446,11 @@ const RoleBadge: React.FC<{ role: UserRole }> = ({
       label: "Volunteer",
       className:
         "border-cyan-200 bg-cyan-50 text-cyan-700",
+    },
+    ADMIN: {
+      label: "Admin",
+      className:
+        "border-slate-200 bg-slate-100 text-slate-700",
     },
   };
 

@@ -8,6 +8,7 @@ from app.schemas.ngo import NGOResponse
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.models.ngo import NGOProfile
+from app.models.safety_check import DonationSafetyCheck
 from app.services.matching import calculate_distance
 from app.services.audit import create_audit_event
 from app.services.expiry import expire_stale_donations
@@ -54,6 +55,20 @@ def create_donation(
     )
 
     db.add(new_donation)
+    db.flush()
+
+    if donation.safety_checklist is not None:
+        checklist = donation.safety_checklist
+        db.add(DonationSafetyCheck(
+            donation_id=new_donation.id,
+            hygienic_preparation=checklist.hygienic_preparation,
+            safe_temperature=checklist.safe_temperature,
+            covered_and_labelled=checklist.covered_and_labelled,
+            no_spoilage_signs=checklist.no_spoilage_signs,
+            allergens=(checklist.allergens or "").strip() or None,
+            declared_by=current_user.id
+        ))
+
     db.commit()
     db.refresh(new_donation)
 

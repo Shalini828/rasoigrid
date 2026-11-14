@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import {
   ShieldCheck,
@@ -13,7 +13,42 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+import { api } from "../../core/api/client";
+import type { AdminOverviewDTO } from "../../core/api/types";
+
+const n = (value: number | undefined) =>
+  value === undefined ? "—" : value.toLocaleString("en-IN");
+
 export const AdminDashboardPage: React.FC = () => {
+  const [overview, setOverview] = useState<AdminOverviewDTO | null>(null);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getAdminOverview()
+      .then((data) => {
+        if (!cancelled) setOverview(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Could not load network figures.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activePickups = overview
+    ? overview.dispatches.waiting_for_volunteer +
+      overview.dispatches.assigned +
+      overview.dispatches.picked_up
+    : undefined;
+  const needsAttention = overview
+    ? overview.ngos.pending + overview.dispatches.waiting_for_volunteer
+    : undefined;
+
   return (
     <div className="min-h-full bg-[#f4f8f5] text-[#102a43]">
       <div className="mx-auto max-w-[1500px] space-y-6">
@@ -71,37 +106,47 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </section>
 
+        {loadError && (
+          <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {loadError}
+          </p>
+        )}
+
         {/* NETWORK METRICS */}
         <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
           <MetricCard
             label="Registered Users"
-            value="142"
-            unit="network users"
+            value={n(overview?.users.total)}
+            unit={
+              overview
+                ? `${overview.users.donors} donors · ${overview.users.ngos} NGOs · ${overview.users.volunteers} volunteers`
+                : "network users"
+            }
             icon={<Users className="h-5 w-5" />}
             iconClass="bg-indigo-50 text-indigo-600 border-indigo-100"
           />
 
           <MetricCard
             label="Verified NGOs"
-            value="27"
-            unit="organizations"
+            value={n(overview?.ngos.verified)}
+            unit={overview ? `${overview.ngos.pending} waiting for review` : "organizations"}
             icon={<Building2 className="h-5 w-5" />}
             iconClass="bg-emerald-50 text-emerald-600 border-emerald-100"
           />
 
           <MetricCard
-            label="Active Volunteers"
-            value="38"
-            unit="field operators"
+            label="Volunteers On Duty"
+            value={n(overview?.volunteers.on_duty)}
+            unit="free for a pickup now"
             icon={<Truck className="h-5 w-5" />}
             iconClass="bg-cyan-50 text-cyan-600 border-cyan-100"
           />
 
           <MetricCard
-            label="System Alerts"
-            value="6"
-            unit="need review"
+            label="Needs Attention"
+            value={n(needsAttention)}
+            unit="NGOs to verify + pickups with no volunteer"
             icon={<AlertTriangle className="h-5 w-5" />}
             iconClass="bg-amber-50 text-amber-600 border-amber-100"
           />
@@ -139,8 +184,8 @@ export const AdminDashboardPage: React.FC = () => {
               icon={<Building2 className="h-5 w-5" />}
               title="NGO Verification"
               description="Review participating NGO organizations and their verification status."
-              status="3 pending"
-              warning
+              status={overview ? `${overview.ngos.pending} pending` : "—"}
+              warning={!!overview && overview.ngos.pending > 0}
             />
 
             <ControlCard
@@ -199,27 +244,31 @@ export const AdminDashboardPage: React.FC = () => {
             <div className="mt-5 space-y-3">
 
               <ActivityRow
-                label="Recovery missions"
-                value="18 active"
+                label="Food waiting for an NGO"
+                value={`${n(overview?.donations.available)} donations`}
                 status="normal"
               />
 
               <ActivityRow
-                label="Priority alerts"
-                value="6 require review"
-                status="warning"
-              />
-
-              <ActivityRow
-                label="Receiver network"
-                value="27 active hubs"
+                label="Pickups in progress"
+                value={`${n(activePickups)} active`}
                 status="normal"
               />
 
               <ActivityRow
-                label="Circular recovery"
-                value="Operating"
+                label="Delivered to people"
+                value={
+                  overview?.delivery_rate_percent != null
+                    ? `${n(overview.donations.delivered)} (${overview.delivery_rate_percent}% of finished)`
+                    : `${n(overview?.donations.delivered)} donations`
+                }
                 status="normal"
+              />
+
+              <ActivityRow
+                label="Expired before pickup"
+                value={`${n(overview?.donations.expired)} donations`}
+                status={overview && overview.donations.expired > 0 ? "warning" : "normal"}
               />
 
             </div>

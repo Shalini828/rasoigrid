@@ -35,6 +35,19 @@ class Dispatch(Base):
 
     rescue_request = relationship("RescueRequest")
     volunteer = relationship("VolunteerProfile")
+    delivery_code = relationship("DeliveryCode", uselist=False)
+
+    @property
+    def requires_handover_code(self):
+        """True when the volunteer must enter the NGO's code to deliver."""
+        return self.delivery_code is not None
+
+    @property
+    def handover_confirmed(self):
+        return (
+            self.delivery_code is not None
+            and self.delivery_code.confirmed_at is not None
+        )
 
     @property
     def donation(self):

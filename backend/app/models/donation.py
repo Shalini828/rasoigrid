@@ -45,6 +45,12 @@ class Donation(Base):
 
     donor = relationship("User")
 
+    safety_checklist = relationship(
+        "DonationSafetyCheck",
+        uselist=False,
+        lazy="joined"
+    )
+
     @property
     def donor_name(self):
         return self.donor.name if self.donor else None

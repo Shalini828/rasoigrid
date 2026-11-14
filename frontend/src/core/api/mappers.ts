@@ -160,6 +160,16 @@ export const toSurplusItem = (d: DonationDTO): FoodSurplusItem => {
     recoveryPath: d.recovery_path ?? null,
     recommendedAction: d.recommended_action ?? null,
     distanceToNgoKm: d.distance_to_ngo_km ?? null,
+    safetyChecklist: d.safety_checklist
+      ? {
+          confirmed:
+            d.safety_checklist.hygienic_preparation &&
+            d.safety_checklist.safe_temperature &&
+            d.safety_checklist.covered_and_labelled &&
+            d.safety_checklist.no_spoilage_signs,
+          allergens: d.safety_checklist.allergens,
+        }
+      : null,
     createdAt: d.created_at ? parseApiDate(d.created_at).toISOString() : null,
   };
 };
@@ -191,6 +201,9 @@ export const toMission = (d: DispatchDTO): RescueMission => {
     receiverLocation,
     distanceKm: km === null ? null : Number(km.toFixed(1)),
     status: DISPATCH_STATUS[d.status] ?? "dispatching",
+    requiresHandoverCode: d.requires_handover_code ?? false,
+    handoverConfirmed: d.handover_confirmed ?? false,
+    handoverCode: d.handover_code ?? null,
   };
 };
 
