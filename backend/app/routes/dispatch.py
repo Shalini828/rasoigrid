@@ -17,6 +17,7 @@ from app.models.donation import Donation
 from app.models.impact import ImpactRecord
 from app.models.delivery_code import DeliveryCode
 from app.services.audit import create_audit_event
+from app.services.notifications import notify
 
 
 MAX_HANDOVER_ATTEMPTS = 5
@@ -39,6 +40,31 @@ router = APIRouter(
     prefix="/api/dispatches",
     tags=["Dispatches"]
 )
+
+
+def _notify_status_change(db: Session, dispatch: Dispatch, status: str):
+    """Tell the donor and the NGO when their food moves."""
+    rescue_request = dispatch.rescue_request
+    donation = rescue_request.donation if rescue_request else None
+    if donation is None:
+        return
+
+    ngo_user_id = rescue_request.ngo.user_id if rescue_request.ngo else None
+    food = donation.food_name
+
+    if status == "PICKED_UP":
+        notify(db, donation.donor_id,
+               f"A volunteer collected your {food}", link="/app/donor/history")
+        notify(db, ngo_user_id,
+               f"{food} is on its way to you", link="/app/command")
+    elif status == "DELIVERED":
+        notify(db, donation.donor_id,
+               f"Your {food} reached the NGO. Thank you!", link="/app/donor/history")
+        notify(db, ngo_user_id,
+               f"{food} was delivered", link="/app/command")
+    elif status == "CANCELLED":
+        notify(db, ngo_user_id,
+               f"The pickup for {food} was cancelled", link="/app/command")
 
 
 def get_db():
@@ -179,6 +205,16 @@ def create_dispatch(
         details="Dispatch created",
         db=db
     )
+
+    donation = rescue_request.donation
+    food = donation.food_name if donation is not None else "food"
+    if volunteer is not None:
+        notify(
+            db,
+            volunteer.user_id,
+            f"New pickup assigned: {food}",
+            link="/app/logistics",
+        )
 
     db.refresh(new_dispatch)
 
@@ -486,6 +522,8 @@ def update_dispatch_status(
             ),
             db=db
         )
+
+        _notify_status_change(db, dispatch, status)
 
     db.refresh(dispatch)
 

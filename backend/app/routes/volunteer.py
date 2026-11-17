@@ -8,6 +8,7 @@ from app.models.donation import Donation
 from app.schemas.volunteer import VolunteerCreate, VolunteerResponse
 from app.dependencies.auth import get_current_user
 from app.services.volunteer import rank_volunteers
+from app.services.matching import calculate_distance
 
 
 router = APIRouter(
@@ -201,49 +202,16 @@ def get_donation_volunteers(
         ):
             return float("inf")
 
-        lat_diff = volunteer.latitude - donation.latitude
-        lon_diff = volunteer.longitude - donation.longitude
-
-        return (lat_diff ** 2 + lon_diff ** 2) ** 0.5
+        return calculate_distance(
+            donation.latitude,
+            donation.longitude,
+            volunteer.latitude,
+            volunteer.longitude,
+        )
 
     volunteers.sort(key=distance)
 
     return volunteers
-
-def test_donor_cannot_view_volunteer_profile():
-    """
-    A DONOR must not be allowed to view a volunteer profile.
-    """
-
-    from app.dependencies.auth import get_current_user
-    from app.models.user import User
-
-    fake_donor_user = User(
-        id=994,
-        name="Test Donor Volunteer Profile",
-        email="donor-volunteer-profile-test@rasoigrid.com",
-        phone="9999999994",
-        password_hash="test-password",
-        role="DONOR"
-    )
-
-
-    app.dependency_overrides[get_current_user] = (
-        lambda: fake_donor_user
-    )
-
-    try:
-        response = client.get(
-            "/api/volunteers/my"
-        )
-
-        assert response.status_code == 403
-        assert response.json()["detail"] == (
-            "Only volunteer users can view volunteer profile"
-        )
-
-    finally:
-        app.dependency_overrides.clear()
 
 
 @router.get("/available", response_model=list[VolunteerResponse])

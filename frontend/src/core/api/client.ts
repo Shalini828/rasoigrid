@@ -31,6 +31,8 @@ import type {
   ImpactDTO,
   NGODTO,
   NGOInput,
+  NotificationDTO,
+  NotificationListDTO,
   RescueRequestDTO,
   VolunteerDTO,
   VolunteerInput,
@@ -170,6 +172,24 @@ class ApiService {
 
   async getAdminOverview(): Promise<AdminOverviewDTO> {
     return apiRequest<AdminOverviewDTO>("/api/admin/overview");
+  }
+
+  /* ---------------- Notifications ---------------- */
+
+  async getMyNotifications(limit = 30): Promise<NotificationListDTO> {
+    return apiRequest<NotificationListDTO>(`/api/notifications/me?limit=${limit}`);
+  }
+
+  async markNotificationRead(id: number): Promise<NotificationDTO> {
+    return apiRequest<NotificationDTO>(`/api/notifications/${id}/read`, {
+      method: "PATCH",
+    });
+  }
+
+  async markAllNotificationsRead(): Promise<{ marked_read: number }> {
+    return apiRequest<{ marked_read: number }>("/api/notifications/read-all", {
+      method: "POST",
+    });
   }
 
   /* ---------------- Volunteers ---------------- */

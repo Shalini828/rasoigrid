@@ -21,27 +21,36 @@ from app.models.impact import ImpactRecord
 from app.models.audit import AuditEvent
 from app.models.delivery_code import DeliveryCode
 from app.models.safety_check import DonationSafetyCheck
+from app.models.notification import Notification
 from app.routes.dispatch import router as dispatch_router
 from app.routes.prediction import router as prediction_router
 from app.routes.impact import router as impact_router
 from app.routes.admin import router as admin_router
+from app.routes.notifications import router as notifications_router
 
 
 app = FastAPI(title="RasoiGrid API")
 app.add_middleware(
     CORSMiddleware,
+    # FRONTEND_URL may list several sites, separated by commas
     allow_origins=[
-        os.getenv(
+        origin.strip().rstrip("/")
+        for origin in os.getenv(
             "FRONTEND_URL",
             "http://localhost:5173"
-        )
+        ).split(",")
+        if origin.strip()
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-Base.metadata.create_all(bind=engine)
+# Local runs and tests create tables directly. Deployed servers set
+# AUTO_CREATE_TABLES=false and use Alembic migrations (see start.sh).
+if os.getenv("AUTO_CREATE_TABLES", "true").lower() == "true":
+    Base.metadata.create_all(bind=engine)
+
 app.include_router(auth_router)
 app.include_router(donation_router)
 app.include_router(ngo_router)
@@ -51,6 +60,7 @@ app.include_router(dispatch_router)
 app.include_router(prediction_router)
 app.include_router(impact_router)
 app.include_router(admin_router)
+app.include_router(notifications_router)
 
 
 @app.get("/")

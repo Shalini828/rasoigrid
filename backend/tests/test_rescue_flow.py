@@ -179,6 +179,16 @@ def test_full_rescue_flow():
     dispatch_id = dispatch.json()["id"]
     assert dispatch.json()["status"] == "ASSIGNED"
 
+    # A volunteer who is not assigned to this pickup can't change it
+    stranger = _register_and_login("VOLUNTEER")
+    blocked = client.patch(
+        f"/api/dispatches/{dispatch_id}/status",
+        headers=stranger,
+        params={"status": "PICKED_UP"},
+    )
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"] == "You are not assigned to this dispatch"
+
     # The NGO gets a six-digit handover code; the volunteer does not
     handover_code = dispatch.json()["handover_code"]
     assert handover_code and len(handover_code) == 6
