@@ -11,7 +11,6 @@ import {
   HeartHandshake,
   Recycle,
   BarChart3,
-  Bell,
   PlusCircle,
   Clock,
   Radio,
@@ -24,6 +23,7 @@ import {
 
 import { useRescueStore } from "../../stores/useRescueStore";
 import { useAuthStore } from "../../stores/useAuthStore";
+import { NotificationBell } from "./NotificationBell";
 
 import type { UserRole } from "../../stores/useAuthStore";
 
@@ -368,19 +368,7 @@ export const AppShell: React.FC = () => {
 
             {/* NOTIFICATIONS */}
 
-            <button
-              type="button"
-              className="relative p-2 rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-all"
-              aria-label="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-
-              {urgentCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-rose-500 rounded-full">
-                  <span className="absolute inset-0 rounded-full bg-rose-500 animate-ping" />
-                </span>
-              )}
-            </button>
+            <NotificationBell />
           </div>
         </div>
       </header>

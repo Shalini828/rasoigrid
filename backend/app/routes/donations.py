@@ -11,6 +11,7 @@ from app.models.ngo import NGOProfile
 from app.models.safety_check import DonationSafetyCheck
 from app.services.matching import calculate_distance
 from app.services.audit import create_audit_event
+from app.services.notifications import notify, verified_ngo_user_ids
 from app.services.expiry import expire_stale_donations
 
 router = APIRouter(
@@ -79,6 +80,14 @@ def create_donation(
         actor_id=current_user.id,
         details="Donation created",
         db=db
+    )
+
+    notify(
+        db,
+        verified_ngo_user_ids(db),
+        f"New food listed: {new_donation.food_name} "
+        f"({new_donation.quantity:g} {new_donation.unit})",
+        link="/app/command",
     )
 
     return new_donation

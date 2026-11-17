@@ -201,3 +201,16 @@ export interface AdminOverviewDTO {
   };
   delivery_rate_percent: number | null;
 }
+
+export interface NotificationDTO {
+  id: number;
+  message: string;
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListDTO {
+  unread: number;
+  items: NotificationDTO[];
+}

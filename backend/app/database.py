@@ -13,6 +13,11 @@ if not DATABASE_URL:
         "DATABASE_URL environment variable is not configured"
     )
 
+# Some hosts (Render, Heroku) hand out postgres:// URLs, which
+# SQLAlchemy 2 no longer accepts.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
 engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(

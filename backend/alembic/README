@@ -1,0 +1,6 @@
+RasoiGrid database migrations (Alembic). Run every command from backend/.
+
+  alembic upgrade head          bring a database up to date
+  alembic stamp head            mark a database made by create_all as up to date
+  alembic revision --autogenerate -m "what changed"
+                                after changing a model; read the file it writes

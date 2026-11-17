@@ -12,6 +12,7 @@ from app.schemas.rescue_request import (
 from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.services.audit import create_audit_event
+from app.services.notifications import notify
 from app.services.expiry import expire_stale_donations
 
 
@@ -208,5 +209,19 @@ def update_rescue_request_status(
             details="Rescue request accepted",
             db=db
         )
+
+        donation = rescue_request.donation
+        if donation is not None:
+            ngo_name = (
+                rescue_request.ngo.organization_name
+                if rescue_request.ngo is not None
+                else "An NGO"
+            )
+            notify(
+                db,
+                donation.donor_id,
+                f"{ngo_name} claimed your {donation.food_name}",
+                link="/app/donor/history",
+            )
 
     return rescue_request
